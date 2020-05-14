@@ -1,0 +1,1 @@
+gcc *.c -lpthread -Wall -o out
