@@ -123,86 +123,86 @@ SystemAirport/fast:
 	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/build
 .PHONY : SystemAirport/fast
 
-main.o: main.c.o
+src/main.o: src/main.c.o
 
-.PHONY : main.o
-
-# target to build an object file
-main.c.o:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/main.c.o
-.PHONY : main.c.o
-
-main.i: main.c.i
-
-.PHONY : main.i
-
-# target to preprocess a source file
-main.c.i:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/main.c.i
-.PHONY : main.c.i
-
-main.s: main.c.s
-
-.PHONY : main.s
-
-# target to generate assembly for a file
-main.c.s:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/main.c.s
-.PHONY : main.c.s
-
-plane.o: plane.c.o
-
-.PHONY : plane.o
+.PHONY : src/main.o
 
 # target to build an object file
-plane.c.o:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/plane.c.o
-.PHONY : plane.c.o
+src/main.c.o:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/main.c.o
+.PHONY : src/main.c.o
 
-plane.i: plane.c.i
+src/main.i: src/main.c.i
 
-.PHONY : plane.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-plane.c.i:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/plane.c.i
-.PHONY : plane.c.i
+src/main.c.i:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/main.c.i
+.PHONY : src/main.c.i
 
-plane.s: plane.c.s
+src/main.s: src/main.c.s
 
-.PHONY : plane.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-plane.c.s:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/plane.c.s
-.PHONY : plane.c.s
+src/main.c.s:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/main.c.s
+.PHONY : src/main.c.s
 
-tower.o: tower.c.o
+src/plane.o: src/plane.c.o
 
-.PHONY : tower.o
+.PHONY : src/plane.o
 
 # target to build an object file
-tower.c.o:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/tower.c.o
-.PHONY : tower.c.o
+src/plane.c.o:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/plane.c.o
+.PHONY : src/plane.c.o
 
-tower.i: tower.c.i
+src/plane.i: src/plane.c.i
 
-.PHONY : tower.i
+.PHONY : src/plane.i
 
 # target to preprocess a source file
-tower.c.i:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/tower.c.i
-.PHONY : tower.c.i
+src/plane.c.i:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/plane.c.i
+.PHONY : src/plane.c.i
 
-tower.s: tower.c.s
+src/plane.s: src/plane.c.s
 
-.PHONY : tower.s
+.PHONY : src/plane.s
 
 # target to generate assembly for a file
-tower.c.s:
-	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/tower.c.s
-.PHONY : tower.c.s
+src/plane.c.s:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/plane.c.s
+.PHONY : src/plane.c.s
+
+src/tower.o: src/tower.c.o
+
+.PHONY : src/tower.o
+
+# target to build an object file
+src/tower.c.o:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/tower.c.o
+.PHONY : src/tower.c.o
+
+src/tower.i: src/tower.c.i
+
+.PHONY : src/tower.i
+
+# target to preprocess a source file
+src/tower.c.i:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/tower.c.i
+.PHONY : src/tower.c.i
+
+src/tower.s: src/tower.c.s
+
+.PHONY : src/tower.s
+
+# target to generate assembly for a file
+src/tower.c.s:
+	$(MAKE) -f CMakeFiles/SystemAirport.dir/build.make CMakeFiles/SystemAirport.dir/src/tower.c.s
+.PHONY : src/tower.c.s
 
 # Help Target
 help:
@@ -213,15 +213,15 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... SystemAirport"
 	@echo "... edit_cache"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
-	@echo "... plane.o"
-	@echo "... plane.i"
-	@echo "... plane.s"
-	@echo "... tower.o"
-	@echo "... tower.i"
-	@echo "... tower.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
+	@echo "... src/plane.o"
+	@echo "... src/plane.i"
+	@echo "... src/plane.s"
+	@echo "... src/tower.o"
+	@echo "... src/tower.i"
+	@echo "... src/tower.s"
 .PHONY : help
 
 
