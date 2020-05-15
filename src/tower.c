@@ -60,15 +60,16 @@ void initRunways() {
 
 void deleteRunways() {
     for (int i = 0; i < NUMBERAIRPORT; ++i) {
-        printf("Destruction aéroport %s... ", airportNames[i]);
+        printf("Destruction aéroport %i / %i\r", i + 1, NUMBERAIRPORT);
+        fflush(stdout);
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
             if (pthread_cond_destroy(&(solicitations[i][j])) != 0) {
                 perror("Problème destruction cond");
             }
         }
-        printf("ok\n");
         pthread_mutex_destroy(&(mutex[i]));
     }
+    printf("\n");
 }
 
 void cleanupHandler(void *arg) {

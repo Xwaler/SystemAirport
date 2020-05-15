@@ -1,8 +1,9 @@
 #ifndef LO41_PLANE_H
 #define LO41_PLANE_H
 
-#define PLANENUMBER 35
-#define BUFFER 200
+#include "main.h"
+
+#define PLANENUMBER (10 * DISPLAYEDLINES)
 #define CRITICALFUEL 30
 #define RESPONDEVERY 250
 

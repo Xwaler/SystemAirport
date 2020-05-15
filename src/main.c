@@ -14,6 +14,7 @@
 
 int msgid;
 int logging = 0;
+int firstLine = 0;
 
 int usedIds[MAXID + 1] = {0};
 int planeIds[PLANENUMBER];
@@ -24,6 +25,7 @@ pthread_t planes[PLANENUMBER];
 plane_struct planeInfos[PLANENUMBER];
 
 void traitantSIGINT(int signo) {
+    printf("%c[2K", 27);
     printf("\nSignal SIGINT reçu, destruction !\n");
 
     printf("Destruction file de messages %i... ", msgid);
@@ -33,26 +35,29 @@ void traitantSIGINT(int signo) {
 
     void* ret;
     for (int i = 0; i < PLANENUMBER; ++i) {
-        printf("Destruction avion %03i... ", planeIds[i]);
+        printf("Destruction avion %i / %i\r", i + 1, PLANENUMBER);
         fflush(stdout);
         if (pthread_cancel(planes[i]) != 0) {
             perror("Problème thread cancel");
             exit(1);
         }
         pthread_join(planes[i], &ret);
-        if (ret == PTHREAD_CANCELED) {
-            printf("ok\n");
-            fflush(stdout);
-        } else {
+        if (ret != PTHREAD_CANCELED) {
             perror("Problème thread join");
             exit(1);
         }
     }
+    printf("\n");
 
     deleteRunways();
 
     printf("Destruction réussie\n");
     exit(0);
+}
+
+void traitantSIGTSTP(int signo) {
+    firstLine = (firstLine + DISPLAYEDLINES) % PLANENUMBER;
+    printf("%c[2K", 27);
 }
 
 int getNewId() {
@@ -65,22 +70,29 @@ int getNewId() {
 }
 
 void printPlanesInfo() {
-    int cx = snprintf(infos, PLANENUMBER * BUFFER,
+    int start = firstLine;
+    int end = start + DISPLAYEDLINES;
+
+    int cx = snprintf(infos, DISPLAYEDLINES * BUFFER,
             "VOL  MODEL           TAILLE    CAPACTIE            DEPART --> DESTINATION      ETAT              CONDITION           FUEL\n\n");
-    for (int i = 0; i < PLANENUMBER; ++i) {
-        cx += snprintf(infos + cx, PLANENUMBER * BUFFER - cx,
+    for (int i = start; i < end; ++i) {
+        cx += snprintf(infos + cx, DISPLAYEDLINES * BUFFER - cx,
                        "%03i  %s  %-8s  %3i / %-3i    %13s --> %-13s    %s  %-18s  %3i%%\n",
                        planeInfos[i].id, planeInfos[i].model, sizes[planeInfos[i].large],
                        planeInfos[i].passengers, planeInfos[i].seats,
                        airportNames[planeInfos[i].depart], airportNames[planeInfos[i].destination],
                        states[planeInfos[i].state], conditions[planeInfos[i].condition], planeInfos[i].fuel);
     }
+    snprintf(infos + cx, DISPLAYEDLINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
+             (int) (start / DISPLAYEDLINES) + 1, (int) PLANENUMBER / DISPLAYEDLINES);
+
     printf("\033[H");
     printf("%s", infos);
 }
 
 int main(int argc, char **argv) {
     signal(SIGINT, traitantSIGINT);
+    signal(SIGTSTP, traitantSIGTSTP);
 
     key_t clef;
     int i, j, opt;
@@ -121,8 +133,6 @@ int main(int argc, char **argv) {
 
     printf("Tour de contrôle créée\n\n");
     fflush(stdout);
-
-    sleep(1);
 
     printf("\033[1;1H\033[2J");
     plane_struct temp;

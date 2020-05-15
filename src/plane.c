@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <pthread.h>
@@ -65,7 +66,7 @@ void sendRequestInfo(plane_struct *info) {
     msgsnd(msgid, &request, sizeRequest, 0);
 }
 
-plane_struct getRequestResponse(plane_struct *info) {
+plane_struct getRequestResponse() {
     planeResponse response;
     msgrcv(msgid, &response, sizeResponse, getpid(), 0);
     return response.planeInfo;
@@ -105,12 +106,17 @@ void asyncSleep(int nsec, plane_struct *info) {
 void *plane(void *arg) {
     pthread_cleanup_push(cleanupHandler, NULL);
 
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTSTP);
+    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+
     int id = *((int *) arg);
     plane_struct info;
     info.id = id;
     initPlane(&info);
 
-    sleep(1);
     while (1) {
         info.actual = info.depart;
         info.state = 0;
