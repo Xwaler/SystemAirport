@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <pthread.h>
+#include <math.h>
 
 #include "main.h"
 #include "tower.h"
@@ -37,8 +38,24 @@ const char *airportNames[] = {
         "Dijon",
         "Angers",
         "Nimes",
-        "Saint-Denis",
+        "Le Mans",
+
+        "Londres",
+        "Amsterdam",
+        "Frankfort",
+        "Madrid",
+        "Barcelone",
+        "Istanbul",
+        "Moscou",
+        "Munich",
+        "Rome",
+        "Dublin",
 };
+const int airportPostitions[][2] = {{4886, 229}, {4329, 536}, {4575, 483}, {4360, 144}, {4370, 726}, {4721, -155},
+                                    {4858, 775}, {4544, -28}, {4450, -36}, {5063, 306}, {4811, -168}, {4925, 403},
+                                    {4559, 330}, {4312, 593}, {4949, 10}, {4518, 573}, {4732, 504}, {4747, -55},
+                                    {4383, 436}, {4800, 19}, {5150, -12}, {5237, 489}, {5011, 868}, {4041, -370},
+                                    {4138, 217}, {4100, 289}, {5575, 376}, {4813, 115}, {4189, 124}, {5334, -626}};
 
 int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
 pthread_cond_t solicitations[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
@@ -86,27 +103,46 @@ void incrementTime(struct timespec *ts) {
     }
 }
 
+void vectorPlane(float *vector, const float latitude, const float longitude, const int *destination) {
+    vector[LATITUDE] = (float) destination[LATITUDE] - latitude;
+    vector[LONGITUDE] = (float) destination[LONGITUDE] - longitude;
+}
+
+void vectorAirport(float *vector, const int *start, const int *destination) {
+    vector[LATITUDE] = (float) (destination[LATITUDE] - start[LATITUDE]);
+    vector[LONGITUDE] = (float) (destination[LONGITUDE] - start[LONGITUDE]);
+}
+
+float distance(float vector[]) {
+    return sqrtf(powf(vector[LATITUDE], 2) + powf(vector[LONGITUDE], 2));
+}
+
+void normalize(float normalizedVector[], const float vector[], float d) {
+    normalizedVector[0] = vector[0] / d * SPEED;
+    normalizedVector[1] = vector[1] / d * SPEED;
+}
+
 void requestLanding(plane_struct *info){
-    pthread_mutex_lock(&(mutex[info->destination]));
+    pthread_mutex_lock(&(mutex[info->actual]));
 
     int res;
     const char* size = sizes[info->large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     int solicitation = info->large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
-    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->destination]) : &(smallRunwayFree[info->destination]);
+    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande d'atterrissage %s avion %03i\n",
-                airportNames[info->destination], size, info->id);
+                airportNames[info->actual], size, info->id);
         fflush(stdout);
     }
 
-    ++(numberPlanesWaiting[info->destination][solicitation]);
-    while (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition == NORMAL) {
+    ++(numberPlanesWaiting[info->actual][solicitation]);
+    while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual] && info->condition == NORMAL) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour atterrir\n",
-                   airportNames[info->destination], info->id, info->large ? "large" : "une");
+                   airportNames[info->actual], info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -116,21 +152,21 @@ void requestLanding(plane_struct *info){
             respondInfoRequest(info);
             incrementTime(&ts);
 
-            res = pthread_cond_timedwait(&solicitations[info->destination][solicitation], &mutex[info->destination], &ts);
+            res = pthread_cond_timedwait(&solicitations[info->actual][solicitation], &mutex[info->actual], &ts);
 
             decrementFuel(info);
         } while (res == ETIMEDOUT && info->condition == NORMAL);
     }
-    --(numberPlanesWaiting[info->destination][solicitation]);
+    --(numberPlanesWaiting[info->actual][solicitation]);
 
-    if (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition != NORMAL) {
+    if (!(*preferedRunwayFree) && !largeRunwayFree[info->actual] && info->condition != NORMAL) {
         solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 
-        ++(numberPlanesWaiting[info->destination][solicitation]);
+        ++(numberPlanesWaiting[info->actual][solicitation]);
         do {
             if (logging) {
                 printf("%s: Avion %03i attend %s piste pour atterrir d'urgence\n",
-                       airportNames[info->destination], info->id, info->large ? "large" : "une");
+                       airportNames[info->actual], info->id, info->large ? "large" : "une");
                 fflush(stdout);
             }
 
@@ -139,37 +175,37 @@ void requestLanding(plane_struct *info){
                 respondInfoRequest(info);
                 incrementTime(&ts);
 
-                res = pthread_cond_timedwait(&solicitations[info->destination][solicitation], &mutex[info->destination], &ts);
+                res = pthread_cond_timedwait(&solicitations[info->actual][solicitation], &mutex[info->actual], &ts);
 
                 decrementFuel(info);
             } while (res == ETIMEDOUT);
-        } while (!(*preferedRunwayFree) && !largeRunwayFree[info->destination]);
-        --(numberPlanesWaiting[info->destination][solicitation]);
+        } while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual]);
+        --(numberPlanesWaiting[info->actual][solicitation]);
     }
 
     if (*preferedRunwayFree) {
         *preferedRunwayFree = 0;
-        info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->destination]) ? 0 : 1;
+        info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->actual]) ? SMALL_RUNWAY : LARGE_RUNWAY;
     } else {
-        largeRunwayFree[info->destination] = 0;
-        info->runwayNumber = 1;
+        largeRunwayFree[info->actual] = 0;
+        info->runwayNumber = LARGE_RUNWAY;
     }
     if (logging) {
         printf("%s: Avion %03i atterit sur %s piste\n",
-               airportNames[info->destination], info->id, sizes[info->runwayNumber]);
+               airportNames[info->actual], info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 
-    pthread_mutex_unlock(&(mutex[info->destination]));
+    pthread_mutex_unlock(&(mutex[info->actual]));
 }
 
 void freeRunway(plane_struct *info) {
     pthread_mutex_lock(&(mutex[info->actual]));
 
     const char* runwaySize = sizes[info->runwayNumber];
-    int i = info->runwayNumber == 0 ? 1 : 0;
-    int increment = info->runwayNumber == 0 ? 2 : 1;
-    int* runwayFree = info->runwayNumber == 0 ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
+    int i = info->runwayNumber == SMALL_RUNWAY ? 1 : 0;
+    int increment = info->runwayNumber == SMALL_RUNWAY ? 2 : 1;
+    int* runwayFree = info->runwayNumber == SMALL_RUNWAY ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Le %s avion %03i libère %s piste\n",
@@ -177,7 +213,7 @@ void freeRunway(plane_struct *info) {
         fflush(stdout);
     }
     *runwayFree = 1;
-    info->runwayNumber = -1;
+    info->runwayNumber = NO_RUNWAY;
 
     while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) {
         i += increment;
@@ -219,26 +255,26 @@ void freeRunway(plane_struct *info) {
 }
 
 void requestTakeoff(plane_struct *info){
-    pthread_mutex_lock(&(mutex[info->depart]));
+    pthread_mutex_lock(&(mutex[info->actual]));
 
     int res;
     const char* size = sizes[info->large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     int solicitation = info->large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
-    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->depart]) : &(smallRunwayFree[info->depart]);
+    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande de décolage %s avion %03i\n",
-               airportNames[info->depart], size, info->id);
+               airportNames[info->actual], size, info->id);
         fflush(stdout);
     }
 
-    ++(numberPlanesWaiting[info->depart][solicitation]);
-    while (!(*preferedRunwayFree) && !largeRunwayFree[info->depart]){
+    ++(numberPlanesWaiting[info->actual][solicitation]);
+    while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual]){
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour décoler\n",
-                   airportNames[info->depart], info->id, info->large ? "large" : "une");
+                   airportNames[info->actual], info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -246,23 +282,23 @@ void requestTakeoff(plane_struct *info){
             respondInfoRequest(info);
             incrementTime(&ts);
 
-            res = pthread_cond_timedwait(&(solicitations[info->depart][solicitation]), &(mutex[info->depart]), &ts);
+            res = pthread_cond_timedwait(&(solicitations[info->actual][solicitation]), &(mutex[info->actual]), &ts);
         } while (res == ETIMEDOUT);
     }
-    --(numberPlanesWaiting[info->depart][solicitation]);
+    --(numberPlanesWaiting[info->actual][solicitation]);
 
     if (*preferedRunwayFree) {
         *preferedRunwayFree = 0;
-        info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->depart]) ? 0 : 1;
+        info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->actual]) ? SMALL_RUNWAY : LARGE_RUNWAY;
     } else {
-        largeRunwayFree[info->depart] = 0;
-        info->runwayNumber = 1;
+        largeRunwayFree[info->actual] = 0;
+        info->runwayNumber = LARGE_RUNWAY;
     }
     if (logging) {
         printf("%s: Avion %03i décole sur %s piste\n",
-               airportNames[info->depart], info->id, sizes[info->runwayNumber]);
+               airportNames[info->actual], info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 
-    pthread_mutex_unlock(&(mutex[info->depart]));
+    pthread_mutex_unlock(&(mutex[info->actual]));
 }

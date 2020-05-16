@@ -26,7 +26,7 @@ pthread_t planes[PLANE_NUMBER];
 plane_struct planeInfos[PLANE_NUMBER];
 
 void traitantSIGINT(const int signo) {
-    printf("%c[2K", 27);
+    printf("\033[2K");
     printf("\nSignal SIGINT reçu, destruction !\n");
 
     printf("Destruction file de messages %i... ", msgid);
@@ -57,14 +57,14 @@ void traitantSIGINT(const int signo) {
 }
 
 void traitantSIGTSTP(const int signo) {
-    printf("%c[2K", 27);
+    printf("\033[2K");
     firstLine = (firstLine + DISPLAYED_LINES) % PLANE_NUMBER;
 }
 
 int getNewId() {
     int id;
     do {
-        id = rand() % MAX_ID;
+        id = rand() % (MAX_ID + 1);
     } while (id != 0 && usedIds[id]); // pour eviter msg type == 0
     usedIds[id] = 1;
     return id;
@@ -73,16 +73,18 @@ int getNewId() {
 void printPlanesInfo() {
     int start = firstLine;
     int end = start + DISPLAYED_LINES;
+    plane_struct info;
 
     int cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
-                      "VOL  MODEL           TAILLE    CAPACTIE            DEPART --> DESTINATION      ETAT              CONDITION           FUEL\n\n");
+                      "VOL  MODEL           TAILLE            DEPART --> DESTINATION  PROGRES  ETAT              REDIGIGE VERS  CONDITION           FUEL\n\n");
     for (int i = start; i < end; ++i) {
+        info = planeInfos[i];
         cx += snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx,
-                       "%03i  %s  %-8s  %3i / %-3i    %13s --> %-13s    %s  %-18s  %3i%%\n",
-                       planeInfos[i].id, planeInfos[i].model, sizes[planeInfos[i].large],
-                       planeInfos[i].passengers, planeInfos[i].seats,
-                       airportNames[planeInfos[i].depart], airportNames[planeInfos[i].destination],
-                       states[planeInfos[i].state], conditions[planeInfos[i].condition], planeInfos[i].fuel);
+                       "%03i  %-14s  %-8s   %13s --> %-13s   %3i%%  %-16s  %-13s  %-18s  %3i%%\n",
+                       info.id, info.model, sizes[info.large], airportNames[info.start],
+                       airportNames[info.destination], info.progress, states[info.state],
+                       info.redirection <= NOT_REDIRECTED ? "" : airportNames[info.redirection],
+                       conditions[info.condition], info.fuel);
     }
     snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
              (int) (start / DISPLAYED_LINES) + 1, (int) PLANE_NUMBER / DISPLAYED_LINES);
@@ -125,7 +127,7 @@ int main(int argc, char **argv) {
     signal(SIGTSTP, traitantSIGTSTP);
 
     key_t clef;
-    int i, j;
+    int i, j, id;
     srand(getpid());
 
     printf("Création file de messages... ");
@@ -148,7 +150,9 @@ int main(int argc, char **argv) {
     printf("Creation de %i avions... ", PLANE_NUMBER);
     fflush(stdout);
     for (i = 0; i < PLANE_NUMBER; ++i) {
-        planeIds[i] = getNewId();
+        id = getNewId();
+        planeIds[i] = id;
+        planeInfos[i].id = id;
         pthread_create(&planes[i], NULL, plane, &(planeIds[i]));
     }
     printf("ok\n");
@@ -160,10 +164,7 @@ int main(int argc, char **argv) {
     plane_struct temp;
     while (1) {
         if (!logging) {
-            for (i = 0; i < PLANE_NUMBER; ++i) {
-                planeInfos[i].id = planeIds[i];
-                sendRequestInfo(&(planeInfos[i]));
-            }
+            for (i = 0; i < PLANE_NUMBER; ++i) sendRequestInfo(&(planeInfos[i]));
             for (i = 0; i < PLANE_NUMBER; ++i) {
                 temp = getRequestResponse();
                 j = 0;

@@ -3,8 +3,9 @@
 
 #include "main.h"
 
-#define CRITICAL_FUEL_LIMIT 50
+#define CRITICAL_FUEL_LIMIT 25
 #define RESPOND_EVERY 250
+#define SPEED 15
 
 #define HANGAR 0
 #define ROLLING 1
@@ -13,6 +14,9 @@
 #define FLYING 4
 #define WAITING_IN_FLIGHT 5
 #define PRIORITY_IN_FLIGHT 6
+
+#define NOT_REDIRECTED -1
+#define MUST_NOT_REDIRECT -2
 
 #define NORMAL 0
 #define CRITICAL_FUEL 1
@@ -32,13 +36,16 @@ typedef struct {
 
 typedef struct {
     int id;
-    int seats;
-    int passengers;
     char *model;
     int fuel;
-    int depart;
+    int start;
     int destination;
     int actual;
+    int redirection;
+    float latitude;
+    float longitude;
+    float total_distance;
+    int progress;
     int runwayNumber;
     int state;
     int condition;
