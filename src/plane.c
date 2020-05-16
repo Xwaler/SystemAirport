@@ -11,11 +11,11 @@
 #include "plane.h"
 
 const plane_type planeType[] = {
-        {164, "Boeing 737-800", 0},
-        {149, "Boeing 737-700", 0},
-        {375, "Boeing 767-800", 1},
-        {186, "Airbus A320", 0},
-        {220, "Airbus A321", 1},
+        {164, "Boeing 737-800", false},
+        {149, "Boeing 737-700", false},
+        {375, "Boeing 767-800", true},
+        {186, "Airbus A320", false},
+        {220, "Airbus A321", true},
 };
 const char *states[] = {"au hangar",
                         "en roulement",
@@ -65,13 +65,13 @@ void initPlane(plane_struct *info) {
 
 void decrementFuel(plane_struct *info) {
     --(info->fuel);
-    if (info->fuel <= CRITICAL_FUEL_LIMIT) {
+    if (info->fuel <= CRITICAL_FUEL_LIMIT && info->condition == NORMAL) {
         info->condition = CRITICAL_FUEL;
         info->state = PRIORITY_IN_FLIGHT;
     }
 }
 
-int move(plane_struct *info) {
+bool move(plane_struct *info) {
     float vector[2], d;
 
     int destination = info->redirection <= NOT_REDIRECTED ? info->destination : info->redirection;
@@ -83,25 +83,25 @@ int move(plane_struct *info) {
         info->latitude = (float) airportPostitions[destination][LATITUDE];
         info->longitude = (float) airportPostitions[destination][LONGITUDE];
         info->progress = 100;
-        return 1;
+        return true;
     } else {
         float normalizedVector[2];
         normalize(normalizedVector, vector, d);
         info->latitude += normalizedVector[0];
         info->longitude += normalizedVector[1];
         info->progress = (int) ((info->total_distance - d) / info->total_distance * 100);
-        return 0;
+        return false;
     }
 }
 
-void sendRequestInfo(const plane_struct *info) {
-    planeRequest request = {info->id, getpid(), 0};
+void sendRequestInfo(const int id) {
+    planeRequest request = {id};
     msgsnd(msgid, &request, sizeRequest, 0);
 }
 
 plane_struct getRequestResponse() {
     planeResponse response;
-    msgrcv(msgid, &response, sizeResponse, getpid(), 0);
+    msgrcv(msgid, &response, sizeResponse, 1, 0);
     return response.planeInfo;
 }
 
@@ -109,7 +109,7 @@ void respondInfoRequest(const plane_struct *info) {
     planeRequest request;
 
     if (msgrcv(msgid, &request, sizeRequest, info->id, IPC_NOWAIT) != -1) {
-        planeResponse reponse = {request.pidSender, *info};
+        planeResponse reponse = {1, *info};
         msgsnd(msgid, &reponse, sizeResponse, 0);
     }
 }
@@ -127,7 +127,7 @@ int fly(plane_struct *info) {
         decrementFuel(info);
 
         if (info->condition == NORMAL) {
-            if ((rand() % 1000) == 0) {
+            if (!(rand() % 1000)) {
                 info->condition = TECHNICAL_PROBLEM;
                 info->state = PRIORITY_IN_FLIGHT;
             }
@@ -176,7 +176,7 @@ void *plane(void *arg) {
     info.id = *((int *) arg);
     initPlane(&info);
 
-    while (1) {
+    while (true) {
         info.actual = info.start;
         info.state = HANGAR;
         info.condition = NORMAL;

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
@@ -14,10 +15,10 @@
 #define MAX_ID 999
 
 int msgid;
-int logging;
+bool logging;
 int firstLine = 0;
 
-int usedIds[MAX_ID + 1] = {0};
+bool usedIds[MAX_ID + 1] = {false};
 int planeIds[PLANE_NUMBER];
 
 char infos[PLANE_NUMBER * BUFFER];
@@ -36,8 +37,10 @@ void traitantSIGINT(const int signo) {
 
     void* ret;
     for (int i = 0; i < PLANE_NUMBER; ++i) {
-        printf("Destruction avion %i / %i\r", i + 1, PLANE_NUMBER);
+        printf("Destruction avions %i / %i\r", i + 1, PLANE_NUMBER);
         fflush(stdout);
+        usleep(1000);
+
         if (pthread_cancel(planes[i]) != 0) {
             perror("Problème thread cancel");
             exit(1);
@@ -64,9 +67,9 @@ void traitantSIGTSTP(const int signo) {
 int getNewId() {
     int id;
     do {
-        id = rand() % (MAX_ID + 1);
-    } while (id != 0 && usedIds[id]); // pour eviter msg type == 0
-    usedIds[id] = 1;
+        id = (rand() % (MAX_ID - 1)) + 2; // pour eviter msg type == 0 (erreur) ou 1 (main)
+    } while (usedIds[id]);
+    usedIds[id] = true;
     return id;
 }
 
@@ -91,6 +94,7 @@ void printPlanesInfo() {
 
     printf("\033[H");
     printf("%s", infos);
+    fflush(stdout);
 }
 
 void help() {
@@ -109,10 +113,10 @@ int main(int argc, char **argv) {
         switch (opt) {
             case 'l':
                 if (strcmp(optarg, "tab") == 0) {
-                    logging = 0;
+                    logging = false;
                     break;
                 } else if (strcmp(optarg, "log") == 0) {
-                    logging = 1;
+                    logging = true;
                     break;
                 }
             case 'h':
@@ -142,33 +146,35 @@ int main(int argc, char **argv) {
     }
     printf("(msgid %i) ok\n", msgid);
 
-    printf("Creation des pistes... ");
-    fflush(stdout);
     initRunways();
-    printf("ok\n");
 
-    printf("Creation de %i avions... ", PLANE_NUMBER);
     fflush(stdout);
     for (i = 0; i < PLANE_NUMBER; ++i) {
+        printf("Creation avions %i / %i\r", i + 1, PLANE_NUMBER);
+        fflush(stdout);
+        usleep(1000);
+
         id = getNewId();
         planeIds[i] = id;
-        planeInfos[i].id = id;
         pthread_create(&planes[i], NULL, plane, &(planeIds[i]));
     }
-    printf("ok\n");
+    printf("\n");
 
     printf("Tour de contrôle créée\n\n");
+    fflush(stdout);
+    usleep(100 * 1000);
+
     printf("\033[1;1H\033[2J");
     fflush(stdout);
 
     plane_struct temp;
-    while (1) {
+    while (true) {
         if (!logging) {
-            for (i = 0; i < PLANE_NUMBER; ++i) sendRequestInfo(&(planeInfos[i]));
+            for (i = 0; i < PLANE_NUMBER; ++i) sendRequestInfo(planeIds[i]);
             for (i = 0; i < PLANE_NUMBER; ++i) {
                 temp = getRequestResponse();
                 j = 0;
-                while (planeInfos[j].id != temp.id) ++j;
+                while (planeIds[j] != temp.id) ++j;
                 planeInfos[j] = temp;
             }
             printPlanesInfo();

@@ -22,6 +22,8 @@
 #define CRITICAL_FUEL 1
 #define TECHNICAL_PROBLEM 2
 
+#include <stdbool.h>
+
 extern const char *sizes[];
 extern const char *states[];
 extern const char *conditions[];
@@ -31,7 +33,7 @@ extern const int sizeResponse;
 typedef struct {
     int seats;
     char *model;
-    unsigned int large;
+    bool large;
 } plane_type;
 
 typedef struct {
@@ -49,13 +51,11 @@ typedef struct {
     int runwayNumber;
     int state;
     int condition;
-    unsigned int large;
+    bool large;
 } plane_struct;
 
 typedef struct {
     long type;
-    int pidSender;
-    int kill;
 } planeRequest;
 
 typedef struct {
@@ -63,18 +63,24 @@ typedef struct {
     plane_struct planeInfo;
 } planeResponse;
 
-void initPlane(plane_struct *);
+int newDestination(int depart);
 
-void decrementFuel(plane_struct *);
+void initPlane(plane_struct *info);
 
-void sendRequestInfo(const plane_struct *);
+void decrementFuel(plane_struct *info);
+
+bool move(plane_struct *info);
+
+void sendRequestInfo(int id);
 
 plane_struct getRequestResponse();
 
-void respondInfoRequest(const plane_struct *);
+void respondInfoRequest(const plane_struct *info);
 
-void asyncSleep(int, plane_struct *);
+void asyncSleep(int nsec, plane_struct *info);
 
-void *plane(void *);
+int fly(plane_struct *info);
+
+void *plane(void *arg);
 
 #endif //LO41_PLANE_H

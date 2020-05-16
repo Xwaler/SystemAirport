@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include <math.h>
@@ -60,25 +61,31 @@ const int airportPostitions[][2] = {{4886, 229}, {4329, 536}, {4575, 483}, {4360
 int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
 pthread_cond_t solicitations[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
 
-int largeRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = 1};
-int smallRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = 1};
+bool largeRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = true};
+bool smallRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = true};
 
 pthread_mutex_t mutex[NUMBER_AIRPORT];
 
 void initRunways() {
     for (int i = 0; i < NUMBER_AIRPORT; ++i) {
+        printf("Creation aéroports %i / %i\r", i + 1, NUMBER_AIRPORT);
+        fflush(stdout);
+        usleep(1000);
+
         pthread_mutex_init(&(mutex[i]), 0);
 
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
             pthread_cond_init(&(solicitations[i][j]), 0);
         }
     }
+    printf("\n");
 }
 
 void deleteRunways() {
     for (int i = 0; i < NUMBER_AIRPORT; ++i) {
-        printf("Destruction aéroport %i / %i\r", i + 1, NUMBER_AIRPORT);
+        printf("Destruction aéroports %i / %i\r", i + 1, NUMBER_AIRPORT);
         fflush(stdout);
+        usleep(1000);
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
             if (pthread_cond_destroy(&(solicitations[i][j])) != 0) {
                 perror("Problème destruction cond");
@@ -122,7 +129,7 @@ void normalize(float normalizedVector[], const float vector[], float d) {
     normalizedVector[1] = vector[1] / d * SPEED;
 }
 
-void requestLanding(plane_struct *info){
+void requestLanding(plane_struct *info) {
     pthread_mutex_lock(&(mutex[info->actual]));
 
     int res;
@@ -130,7 +137,7 @@ void requestLanding(plane_struct *info){
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     int solicitation = info->large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
-    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
+    bool* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande d'atterrissage %s avion %03i\n",
@@ -139,7 +146,7 @@ void requestLanding(plane_struct *info){
     }
 
     ++(numberPlanesWaiting[info->actual][solicitation]);
-    while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual] && info->condition == NORMAL) {
+    while (info->condition == NORMAL && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour atterrir\n",
                    airportNames[info->actual], info->id, info->large ? "large" : "une");
@@ -159,7 +166,7 @@ void requestLanding(plane_struct *info){
     }
     --(numberPlanesWaiting[info->actual][solicitation]);
 
-    if (!(*preferedRunwayFree) && !largeRunwayFree[info->actual] && info->condition != NORMAL) {
+    if (info->condition != NORMAL && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 
         ++(numberPlanesWaiting[info->actual][solicitation]);
@@ -184,10 +191,10 @@ void requestLanding(plane_struct *info){
     }
 
     if (*preferedRunwayFree) {
-        *preferedRunwayFree = 0;
+        *preferedRunwayFree = false;
         info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->actual]) ? SMALL_RUNWAY : LARGE_RUNWAY;
     } else {
-        largeRunwayFree[info->actual] = 0;
+        largeRunwayFree[info->actual] = false;
         info->runwayNumber = LARGE_RUNWAY;
     }
     if (logging) {
@@ -205,14 +212,14 @@ void freeRunway(plane_struct *info) {
     const char* runwaySize = sizes[info->runwayNumber];
     int i = info->runwayNumber == SMALL_RUNWAY ? 1 : 0;
     int increment = info->runwayNumber == SMALL_RUNWAY ? 2 : 1;
-    int* runwayFree = info->runwayNumber == SMALL_RUNWAY ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
+    bool* runwayFree = info->runwayNumber == SMALL_RUNWAY ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Le %s avion %03i libère %s piste\n",
                airportNames[info->actual], sizes[info->large], info->id, runwaySize);
         fflush(stdout);
     }
-    *runwayFree = 1;
+    *runwayFree = true;
     info->runwayNumber = NO_RUNWAY;
 
     while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) {
@@ -243,7 +250,6 @@ void freeRunway(plane_struct *info) {
             case SMALL_PLANE_TAKEOFF:
                 printf("%s: Donne la %s piste à un petit avion pour décoler\n",
                         airportNames[info->actual], runwaySize);
-                break;
             default:
                 break;
         }
@@ -262,7 +268,7 @@ void requestTakeoff(plane_struct *info){
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     int solicitation = info->large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
-    int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
+    bool* preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande de décolage %s avion %03i\n",
@@ -288,10 +294,10 @@ void requestTakeoff(plane_struct *info){
     --(numberPlanesWaiting[info->actual][solicitation]);
 
     if (*preferedRunwayFree) {
-        *preferedRunwayFree = 0;
+        *preferedRunwayFree = false;
         info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->actual]) ? SMALL_RUNWAY : LARGE_RUNWAY;
     } else {
-        largeRunwayFree[info->actual] = 0;
+        largeRunwayFree[info->actual] = true;
         info->runwayNumber = LARGE_RUNWAY;
     }
     if (logging) {

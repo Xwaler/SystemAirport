@@ -20,15 +20,17 @@ void initRunways();
 
 void deleteRunways();
 
-void cleanupHandler(void *);
+void cleanupHandler(void *arg);
 
-void vectorPlane(float *, float, float , const int *);
+void incrementTime(struct timespec *ts);
 
-void vectorAirport(float *, const int *, const int *);
+void vectorPlane(float *vector, float latitude, float longitude, const int *destination);
 
-float distance(float []);
+void vectorAirport(float *vector, const int *start, const int *destination);
 
-void normalize(float [], const float [], float);
+float distance(float vector[]);
+
+void normalize(float normalizedVector[], const float vector[], float d);
 
 void requestLanding(plane_struct *info);
 
