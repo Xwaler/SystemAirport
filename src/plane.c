@@ -38,7 +38,7 @@ const int numberPlaneTypes = sizeof(planeType) / sizeof(plane_type);
 const int sizeRequest = sizeof(planeRequest) - sizeof(long);
 const int sizeResponse = sizeof(planeResponse);
 
-int newDestination(int depart) {
+int newDestination(const int depart) {
     int destination;
     do {
         destination = rand() % NUMBER_AIRPORT;
@@ -59,9 +59,13 @@ void initPlane(plane_struct *info) {
 
 void decrementFuel(plane_struct *info) {
     --(info->fuel);
+    if (info->fuel <= CRITICAL_FUEL_LIMIT) {
+        info->condition = CRITICAL_FUEL;
+        info->state = PRIORITY_IN_FLIGHT;
+    }
 }
 
-void sendRequestInfo(plane_struct *info) {
+void sendRequestInfo(const plane_struct *info) {
     planeRequest request = {info->id, getpid(), 0};
     msgsnd(msgid, &request, sizeRequest, 0);
 }
@@ -72,7 +76,7 @@ plane_struct getRequestResponse() {
     return response.planeInfo;
 }
 
-void respondInfoRequest(plane_struct *info) {
+void respondInfoRequest(const plane_struct *info) {
     planeRequest request;
 
     if (msgrcv(msgid, &request, sizeRequest, info->id, IPC_NOWAIT) != -1) {
@@ -81,7 +85,7 @@ void respondInfoRequest(plane_struct *info) {
     }
 }
 
-void asyncSleep(int nsec, plane_struct *info) {
+void asyncSleep(const int nsec, plane_struct *info) {
     int n = nsec * 1000 / RESPOND_EVERY;
     for (int i = 0; i < n; ++i) {
         usleep(RESPOND_EVERY * 1000);
@@ -89,14 +93,9 @@ void asyncSleep(int nsec, plane_struct *info) {
         if (info->state >= 4) {
             decrementFuel(info);
 
-            if (info->condition == 0) {
-                if (info->fuel <= CRITICAL_FUEL_LIMIT) {
-                    info->condition = CRITICAL_FUEL;
-                    info->state = PRIORITY_IN_FLIGHT;
-                } else if ((rand() % 1000) == 0) {
-                    info->condition = TECHNICAL_PROBLEM;
-                    info->state = PRIORITY_IN_FLIGHT;
-                }
+            if (info->condition == NORMAL && (rand() % 1000) == 0) {
+                info->condition = TECHNICAL_PROBLEM;
+                info->state = PRIORITY_IN_FLIGHT;
             }
         }
         respondInfoRequest(info);

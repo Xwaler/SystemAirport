@@ -123,11 +123,6 @@ void requestLanding(plane_struct *info){
     }
     --(numberPlanesWaiting[info->destination][solicitation]);
 
-    if (info->fuel <= CRITICAL_FUEL_LIMIT) {
-        info->condition = CRITICAL_FUEL;
-        info->state = PRIORITY_IN_FLIGHT;
-    }
-
     if (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition != NORMAL) {
         solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 

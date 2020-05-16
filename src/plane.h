@@ -3,8 +3,7 @@
 
 #include "main.h"
 
-#define PLANE_NUMBER (10 * DISPLAYED_LINES)
-#define CRITICAL_FUEL_LIMIT 30
+#define CRITICAL_FUEL_LIMIT 50
 #define RESPOND_EVERY 250
 
 #define HANGAR 0
@@ -61,11 +60,11 @@ void initPlane(plane_struct *);
 
 void decrementFuel(plane_struct *);
 
-void sendRequestInfo(plane_struct *);
+void sendRequestInfo(const plane_struct *);
 
 plane_struct getRequestResponse();
 
-void respondInfoRequest(plane_struct *);
+void respondInfoRequest(const plane_struct *);
 
 void asyncSleep(int, plane_struct *);
 

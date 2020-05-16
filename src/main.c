@@ -25,7 +25,7 @@ char infos[PLANE_NUMBER * BUFFER];
 pthread_t planes[PLANE_NUMBER];
 plane_struct planeInfos[PLANE_NUMBER];
 
-void traitantSIGINT(int signo) {
+void traitantSIGINT(const int signo) {
     printf("%c[2K", 27);
     printf("\nSignal SIGINT reçu, destruction !\n");
 
@@ -56,7 +56,7 @@ void traitantSIGINT(int signo) {
     exit(0);
 }
 
-void traitantSIGTSTP(int signo) {
+void traitantSIGTSTP(const int signo) {
     printf("%c[2K", 27);
     firstLine = (firstLine + DISPLAYED_LINES) % PLANE_NUMBER;
 }
@@ -154,9 +154,9 @@ int main(int argc, char **argv) {
     printf("ok\n");
 
     printf("Tour de contrôle créée\n\n");
+    printf("\033[1;1H\033[2J");
     fflush(stdout);
 
-    printf("\033[1;1H\033[2J");
     plane_struct temp;
     while (1) {
         if (!logging) {
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
                 sendRequestInfo(&(planeInfos[i]));
             }
             for (i = 0; i < PLANE_NUMBER; ++i) {
-                temp = getRequestResponse(planeInfos);
+                temp = getRequestResponse();
                 j = 0;
                 while (planeInfos[j].id != temp.id) ++j;
                 planeInfos[j] = temp;
