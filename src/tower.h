@@ -3,7 +3,7 @@
 
 #include "plane.h"
 
-#define NUMBERAIRPORT 20
+#define NUMBER_AIRPORT 20
 
 extern const char *airportNames[];
 extern pthread_mutex_t mutex[];

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
 #include <pthread.h>
@@ -10,19 +11,19 @@
 #include "tower.h"
 #include "plane.h"
 
-#define MAXID 999
+#define MAX_ID 999
 
 int msgid;
-int logging = 0;
+int logging;
 int firstLine = 0;
 
-int usedIds[MAXID + 1] = {0};
-int planeIds[PLANENUMBER];
+int usedIds[MAX_ID + 1] = {0};
+int planeIds[PLANE_NUMBER];
 
-char infos[PLANENUMBER * BUFFER];
+char infos[PLANE_NUMBER * BUFFER];
 
-pthread_t planes[PLANENUMBER];
-plane_struct planeInfos[PLANENUMBER];
+pthread_t planes[PLANE_NUMBER];
+plane_struct planeInfos[PLANE_NUMBER];
 
 void traitantSIGINT(int signo) {
     printf("%c[2K", 27);
@@ -34,8 +35,8 @@ void traitantSIGINT(int signo) {
     printf("ok\n");
 
     void* ret;
-    for (int i = 0; i < PLANENUMBER; ++i) {
-        printf("Destruction avion %i / %i\r", i + 1, PLANENUMBER);
+    for (int i = 0; i < PLANE_NUMBER; ++i) {
+        printf("Destruction avion %i / %i\r", i + 1, PLANE_NUMBER);
         fflush(stdout);
         if (pthread_cancel(planes[i]) != 0) {
             perror("Problème thread cancel");
@@ -56,14 +57,14 @@ void traitantSIGINT(int signo) {
 }
 
 void traitantSIGTSTP(int signo) {
-    firstLine = (firstLine + DISPLAYEDLINES) % PLANENUMBER;
     printf("%c[2K", 27);
+    firstLine = (firstLine + DISPLAYED_LINES) % PLANE_NUMBER;
 }
 
 int getNewId() {
     int id;
     do {
-        id = rand() % MAXID;
+        id = rand() % MAX_ID;
     } while (id != 0 && usedIds[id]); // pour eviter msg type == 0
     usedIds[id] = 1;
     return id;
@@ -71,40 +72,61 @@ int getNewId() {
 
 void printPlanesInfo() {
     int start = firstLine;
-    int end = start + DISPLAYEDLINES;
+    int end = start + DISPLAYED_LINES;
 
-    int cx = snprintf(infos, DISPLAYEDLINES * BUFFER,
-            "VOL  MODEL           TAILLE    CAPACTIE            DEPART --> DESTINATION      ETAT              CONDITION           FUEL\n\n");
+    int cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
+                      "VOL  MODEL           TAILLE    CAPACTIE            DEPART --> DESTINATION      ETAT              CONDITION           FUEL\n\n");
     for (int i = start; i < end; ++i) {
-        cx += snprintf(infos + cx, DISPLAYEDLINES * BUFFER - cx,
+        cx += snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx,
                        "%03i  %s  %-8s  %3i / %-3i    %13s --> %-13s    %s  %-18s  %3i%%\n",
                        planeInfos[i].id, planeInfos[i].model, sizes[planeInfos[i].large],
                        planeInfos[i].passengers, planeInfos[i].seats,
                        airportNames[planeInfos[i].depart], airportNames[planeInfos[i].destination],
                        states[planeInfos[i].state], conditions[planeInfos[i].condition], planeInfos[i].fuel);
     }
-    snprintf(infos + cx, DISPLAYEDLINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
-             (int) (start / DISPLAYEDLINES) + 1, (int) PLANENUMBER / DISPLAYEDLINES);
+    snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
+             (int) (start / DISPLAYED_LINES) + 1, (int) PLANE_NUMBER / DISPLAYED_LINES);
 
     printf("\033[H");
     printf("%s", infos);
 }
 
+void help() {
+    printf("SystemAirport -h pour afficher l'aide\n");
+    exit(1);
+}
+
+void usage() {
+    printf("Usage: SystemAirport -h | -l [tab, log]\n");
+    exit(1);
+}
+
 int main(int argc, char **argv) {
+    int opt;
+    while ((opt = getopt(argc, argv, "hl:")) != -1) {
+        switch (opt) {
+            case 'l':
+                if (strcmp(optarg, "tab") == 0) {
+                    logging = 0;
+                    break;
+                } else if (strcmp(optarg, "log") == 0) {
+                    logging = 1;
+                    break;
+                }
+            case 'h':
+                usage();
+            default:
+                help();
+        }
+    }
+    if (argc == 1 || optind < argc) help();
+
     signal(SIGINT, traitantSIGINT);
     signal(SIGTSTP, traitantSIGTSTP);
 
     key_t clef;
-    int i, j, opt;
+    int i, j;
     srand(getpid());
-
-    while ((opt = getopt(argc, argv, "l")) != -1) {
-        if (opt == 'l') {
-            logging = 1;
-        } else {
-            printf("Argument inconnu \"%c\"\n", opt);
-        }
-    }
 
     printf("Création file de messages... ");
     fflush(stdout);
@@ -123,9 +145,9 @@ int main(int argc, char **argv) {
     initRunways();
     printf("ok\n");
 
-    printf("Creation de %i avions... ", PLANENUMBER);
+    printf("Creation de %i avions... ", PLANE_NUMBER);
     fflush(stdout);
-    for (i = 0; i < PLANENUMBER; ++i) {
+    for (i = 0; i < PLANE_NUMBER; ++i) {
         planeIds[i] = getNewId();
         pthread_create(&planes[i], NULL, plane, &(planeIds[i]));
     }
@@ -138,17 +160,19 @@ int main(int argc, char **argv) {
     plane_struct temp;
     while (1) {
         if (!logging) {
-            for (i = 0; i < PLANENUMBER; ++i) {
+            for (i = 0; i < PLANE_NUMBER; ++i) {
                 planeInfos[i].id = planeIds[i];
                 sendRequestInfo(&(planeInfos[i]));
             }
-            for (i = 0; i < PLANENUMBER; ++i) {
+            for (i = 0; i < PLANE_NUMBER; ++i) {
                 temp = getRequestResponse(planeInfos);
                 j = 0;
                 while (planeInfos[j].id != temp.id) ++j;
                 planeInfos[j] = temp;
             }
             printPlanesInfo();
+        } else {
+            usleep(1000);
         }
     }
     return 0;

@@ -1,7 +1,7 @@
 #ifndef LO41_MAIN_H
 #define LO41_MAIN_H
 
-#define DISPLAYEDLINES 21
+#define DISPLAYED_LINES 21
 #define BUFFER 200
 
 extern int msgid;

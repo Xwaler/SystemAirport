@@ -41,7 +41,7 @@ const int sizeResponse = sizeof(planeResponse);
 int newDestination(int depart) {
     int destination;
     do {
-        destination = rand() % NUMBERAIRPORT;
+        destination = rand() % NUMBER_AIRPORT;
     } while (destination == depart);
     return destination;
 }
@@ -50,11 +50,11 @@ void initPlane(plane_struct *info) {
     int i = rand() % numberPlaneTypes;
     info->seats = planeType[i].seats;
     info->model = planeType[i].model;
-    info->depart = rand() % NUMBERAIRPORT;
+    info->depart = rand() % NUMBER_AIRPORT;
     info->destination = newDestination(info->depart);
     info->runwayNumber = -1;
     info->large = planeType[i].large;
-    info->condition = 0;
+    info->condition = NORMAL;
 }
 
 void decrementFuel(plane_struct *info) {
@@ -82,20 +82,20 @@ void respondInfoRequest(plane_struct *info) {
 }
 
 void asyncSleep(int nsec, plane_struct *info) {
-    int n = nsec * 1000 / RESPONDEVERY;
+    int n = nsec * 1000 / RESPOND_EVERY;
     for (int i = 0; i < n; ++i) {
-        usleep(RESPONDEVERY * 1000);
+        usleep(RESPOND_EVERY * 1000);
 
         if (info->state >= 4) {
             decrementFuel(info);
 
             if (info->condition == 0) {
-                if (info->fuel <= CRITICALFUEL) {
-                    info->condition = 1;
-                    info->state = 6;
+                if (info->fuel <= CRITICAL_FUEL_LIMIT) {
+                    info->condition = CRITICAL_FUEL;
+                    info->state = PRIORITY_IN_FLIGHT;
                 } else if ((rand() % 1000) == 0) {
-                    info->condition = 2;
-                    info->state = 6;
+                    info->condition = TECHNICAL_PROBLEM;
+                    info->state = PRIORITY_IN_FLIGHT;
                 }
             }
         }
@@ -119,28 +119,28 @@ void *plane(void *arg) {
 
     while (1) {
         info.actual = info.depart;
-        info.state = 0;
+        info.state = HANGAR;
+        info.condition = NORMAL;
         info.fuel = 100;
-        info.condition = 0;
         info.passengers = (int) (.7 * info.seats) + rand() % ((int) (.3 * info.seats) + 1);
 
         requestTakeoff(&info);
-        info.state = 1;
+        info.state = ROLLING;
         asyncSleep(1, &info);
 
-        info.state = 2;
+        info.state = TAKEOFF;
         asyncSleep(1, &info);
         freeRunway(&info);
 
-        info.state = 4;
+        info.state = FLYING;
         asyncSleep((rand() % 6) + 5, &info);
 
         requestLanding(&info);
-        info.state = 3;
+        info.state = LANDING;
         asyncSleep(2, &info);
 
         info.actual = info.destination;
-        info.state = 1;
+        info.state = ROLLING;
         freeRunway(&info);
         asyncSleep(1, &info);
 

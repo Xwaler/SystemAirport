@@ -3,9 +3,21 @@
 
 #include "main.h"
 
-#define PLANENUMBER (10 * DISPLAYEDLINES)
-#define CRITICALFUEL 30
-#define RESPONDEVERY 250
+#define PLANE_NUMBER (10 * DISPLAYED_LINES)
+#define CRITICAL_FUEL_LIMIT 30
+#define RESPOND_EVERY 250
+
+#define HANGAR 0
+#define ROLLING 1
+#define TAKEOFF 2
+#define LANDING 3
+#define FLYING 4
+#define WAITING_IN_FLIGHT 5
+#define PRIORITY_IN_FLIGHT 6
+
+#define NORMAL 0
+#define CRITICAL_FUEL 1
+#define TECHNICAL_PROBLEM 2
 
 extern const char *sizes[];
 extern const char *states[];

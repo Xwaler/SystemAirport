@@ -37,19 +37,19 @@ const char *airportNames[] = {
         "Dijon",
         "Angers",
         "Nimes",
-        "Saint-Denis"
+        "Saint-Denis",
 };
 
-int numberPlanesWaiting[NUMBERAIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBERAIRPORT - 1)] = {}};
-pthread_cond_t solicitations[NUMBERAIRPORT][NUMBER_SOLICITATION_TYPES];
+int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
+pthread_cond_t solicitations[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
 
-int largeRunwayFree[NUMBERAIRPORT] = {[0 ... (NUMBERAIRPORT - 1)] = 1};
-int smallRunwayFree[NUMBERAIRPORT] = {[0 ... (NUMBERAIRPORT - 1)] = 1};
+int largeRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = 1};
+int smallRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = 1};
 
-pthread_mutex_t mutex[NUMBERAIRPORT];
+pthread_mutex_t mutex[NUMBER_AIRPORT];
 
 void initRunways() {
-    for (int i = 0; i < NUMBERAIRPORT; ++i) {
+    for (int i = 0; i < NUMBER_AIRPORT; ++i) {
         pthread_mutex_init(&(mutex[i]), 0);
 
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
@@ -59,8 +59,8 @@ void initRunways() {
 }
 
 void deleteRunways() {
-    for (int i = 0; i < NUMBERAIRPORT; ++i) {
-        printf("Destruction aéroport %i / %i\r", i + 1, NUMBERAIRPORT);
+    for (int i = 0; i < NUMBER_AIRPORT; ++i) {
+        printf("Destruction aéroport %i / %i\r", i + 1, NUMBER_AIRPORT);
         fflush(stdout);
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
             if (pthread_cond_destroy(&(solicitations[i][j])) != 0) {
@@ -73,13 +73,13 @@ void deleteRunways() {
 }
 
 void cleanupHandler(void *arg) {
-    for (int i = 0; i < NUMBERAIRPORT; ++i) {
+    for (int i = 0; i < NUMBER_AIRPORT; ++i) {
         pthread_mutex_unlock(&(mutex[i]));
     }
 }
 
 void incrementTime(struct timespec *ts) {
-    ts->tv_nsec += (RESPONDEVERY + (rand() % 50)) * 1000 * 1000;
+    ts->tv_nsec += (RESPOND_EVERY + (rand() % 50)) * 1000 * 1000;
     if (ts->tv_nsec >= 1000 * 1000 * 1000) {
         ts->tv_nsec %= 1000 * 1000 * 1000;
         ts->tv_sec += 1;
@@ -97,20 +97,20 @@ void requestLanding(plane_struct *info){
     int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->destination]) : &(smallRunwayFree[info->destination]);
 
     if (logging) {
-        printf("Demande d'atterrissage %s avion %03i à %s\n",
-                size, info->id, airportNames[info->destination]);
+        printf("%s: Demande d'atterrissage %s avion %03i\n",
+                airportNames[info->destination], size, info->id);
         fflush(stdout);
     }
 
     ++(numberPlanesWaiting[info->destination][solicitation]);
-    while (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition == 0) {
+    while (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition == NORMAL) {
         if (logging) {
-            printf("Avion %03i attend %s piste de %s pour atterrir\n",
-                    info->id, info->large ? "large" : "une", airportNames[info->destination]);
+            printf("%s: Avion %03i attend %s piste pour atterrir\n",
+                   airportNames[info->destination], info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
-        info->state = 5;
+        info->state = WAITING_IN_FLIGHT;
         decrementFuel(info);
         do {
             respondInfoRequest(info);
@@ -119,23 +119,23 @@ void requestLanding(plane_struct *info){
             res = pthread_cond_timedwait(&solicitations[info->destination][solicitation], &mutex[info->destination], &ts);
 
             decrementFuel(info);
-        } while (res == ETIMEDOUT && info->condition == 0);
+        } while (res == ETIMEDOUT && info->condition == NORMAL);
     }
     --(numberPlanesWaiting[info->destination][solicitation]);
 
-    if (info->fuel <= CRITICALFUEL) {
-        info->condition = 1;
-        info->state = 6;
+    if (info->fuel <= CRITICAL_FUEL_LIMIT) {
+        info->condition = CRITICAL_FUEL;
+        info->state = PRIORITY_IN_FLIGHT;
     }
 
-    if (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition != 0) {
+    if (!(*preferedRunwayFree) && !largeRunwayFree[info->destination] && info->condition != NORMAL) {
         solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 
         ++(numberPlanesWaiting[info->destination][solicitation]);
         do {
             if (logging) {
-                printf("Avion %03i attend %s piste de %s pour atterrir d'urgence\n",
-                        info->id, info->large ? "large" : "une", airportNames[info->destination]);
+                printf("%s: Avion %03i attend %s piste pour atterrir d'urgence\n",
+                       airportNames[info->destination], info->id, info->large ? "large" : "une");
                 fflush(stdout);
             }
 
@@ -160,8 +160,8 @@ void requestLanding(plane_struct *info){
         info->runwayNumber = 1;
     }
     if (logging) {
-        printf("Avion %03i atterit sur %s piste de %s\n",
-                info->id, sizes[info->runwayNumber], airportNames[info->destination]);
+        printf("%s: Avion %03i atterit sur %s piste\n",
+               airportNames[info->destination], info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 
@@ -177,8 +177,8 @@ void freeRunway(plane_struct *info) {
     int* runwayFree = info->runwayNumber == 0 ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
 
     if (logging) {
-        printf("Le %s avion %03i libère %s piste de %s\n",
-                sizes[info->large], info->id, runwaySize, airportNames[info->actual]);
+        printf("%s: Le %s avion %03i libère %s piste\n",
+               airportNames[info->actual], sizes[info->large], info->id, runwaySize);
         fflush(stdout);
     }
     *runwayFree = 1;
@@ -190,28 +190,28 @@ void freeRunway(plane_struct *info) {
     if (logging) {
         switch (i) {
             case PRIORITIZED_LARGE_PLANE_LANDING:
-                printf("Donne la %s piste de %s à un gros avion prioritaire pour atterir\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un gros avion prioritaire pour atterir\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             case PRIORITIZED_SMALL_PLANE_LANDING:
-                printf("Donne la %s piste de %s à un petit avion prioritaire pour atterir\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un petit avion prioritaire pour atterir\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             case LARGE_PLANE_LANDING:
-                printf("Donne la %s piste de %s à un gros avion pour atterir\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un gros avion pour atterir\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             case SMALL_PLANE_LANDING:
-                printf("Donne la %s piste de %s à un petit avion pour atterir\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un petit avion pour atterir\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             case LARGE_PLANE_TAKEOFF:
-                printf("Donne la %s piste de %s à un gros avion pour décoler\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un gros avion pour décoler\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             case SMALL_PLANE_TAKEOFF:
-                printf("Donne la %s piste de %s à un petit avion pour décoler\n",
-                        runwaySize, airportNames[info->actual]);
+                printf("%s: Donne la %s piste à un petit avion pour décoler\n",
+                        airportNames[info->actual], runwaySize);
                 break;
             default:
                 break;
@@ -234,16 +234,16 @@ void requestTakeoff(plane_struct *info){
     int* preferedRunwayFree = info->large ? &(largeRunwayFree[info->depart]) : &(smallRunwayFree[info->depart]);
 
     if (logging) {
-        printf("Demande de décolage %s avion %03i à %s\n",
-                size, info->id, airportNames[info->depart]);
+        printf("%s: Demande de décolage %s avion %03i\n",
+               airportNames[info->depart], size, info->id);
         fflush(stdout);
     }
 
     ++(numberPlanesWaiting[info->depart][solicitation]);
     while (!(*preferedRunwayFree) && !largeRunwayFree[info->depart]){
         if (logging) {
-            printf("Avion %03i attend %s piste de %s pour décoler\n",
-                    info->id, info->large ? "large" : "une", airportNames[info->depart]);
+            printf("%s: Avion %03i attend %s piste pour décoler\n",
+                   airportNames[info->depart], info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -264,8 +264,8 @@ void requestTakeoff(plane_struct *info){
         info->runwayNumber = 1;
     }
     if (logging) {
-        printf("Avion %03i décole sur %s piste de %s\n",
-                info->id, sizes[info->runwayNumber], airportNames[info->depart]);
+        printf("%s: Avion %03i décole sur %s piste\n",
+               airportNames[info->depart], info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 
