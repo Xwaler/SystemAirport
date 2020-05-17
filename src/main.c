@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <math.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
 #include <pthread.h>
@@ -79,15 +80,15 @@ void printPlanesInfo() {
     plane_struct info;
 
     int cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
-                      "VOL  MODEL           TAILLE            DEPART --> DESTINATION  PROGRES  ETAT              REDIGIGE VERS  CONDITION           FUEL\n\n");
+                      "VOL  MODEL           TAILLE            DEPART --> DESTINATION  PROGRES  ETAT               REDIGIGE VERS  ALERTE     FUEL\n\n");
     for (int i = start; i < end; ++i) {
         info = planeInfos[i];
         cx += snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx,
-                       "%03i  %-14s  %-8s   %13s --> %-13s   %3i%%  %-16s  %-13s  %-18s  %3i%%\n",
+                       "%03i  %-14s  %-8s   %13s --> %-13s   %3.0f%%  %-17s  %-13s  %-9s  %3.0f%%\n",
                        info.id, info.model, sizes[info.large], airportNames[info.start],
                        airportNames[info.destination], info.progress, states[info.state],
                        info.redirection <= NOT_REDIRECTED ? "" : airportNames[info.redirection],
-                       conditions[info.condition], info.fuel);
+                       info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
     snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
              (int) (start / DISPLAYED_LINES) + 1, (int) PLANE_NUMBER / DISPLAYED_LINES);
@@ -103,7 +104,9 @@ void help() {
 }
 
 void usage() {
-    printf("Usage: SystemAirport -h | -l [tab, log]\n");
+    printf("Usage: SystemAirport -h | -l\n"
+           "-h : affiche l'aide\n"
+           "-l : remplace l'affichage en tableau par du texte\n");
     exit(1);
 }
 
@@ -112,20 +115,15 @@ int main(int argc, char **argv) {
     while ((opt = getopt(argc, argv, "hl:")) != -1) {
         switch (opt) {
             case 'l':
-                if (strcmp(optarg, "tab") == 0) {
-                    logging = false;
-                    break;
-                } else if (strcmp(optarg, "log") == 0) {
-                    logging = true;
-                    break;
-                }
+                logging = true;
+                break;
             case 'h':
                 usage();
             default:
                 help();
         }
     }
-    if (argc == 1 || optind < argc) help();
+    if (optind < argc) help();
 
     signal(SIGINT, traitantSIGINT);
     signal(SIGTSTP, traitantSIGTSTP);

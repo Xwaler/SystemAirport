@@ -4,29 +4,40 @@
 #include "main.h"
 
 #define CRITICAL_FUEL_LIMIT 25
-#define RESPOND_EVERY 250
-#define SPEED 15
+#define UPDATE_EVERY 100
+#define FUEL_CONSUMPTION_RATE .33f
+#define SPEED 5
+#define TECHNICAL_PROBLEM_VALUE 3000
+
+#define REFUEL_DURATION 2
+#define EMBARKMENT_DURATION 2
+#define TAKEOFF_DURATION 2
+#define ROLLING_DURATION 1
+#define LANDING_DURATION 1
 
 #define HANGAR 0
-#define ROLLING 1
-#define TAKEOFF 2
-#define LANDING 3
-#define FLYING 4
-#define WAITING_IN_FLIGHT 5
+#define EMBARKMENT 1
+#define ROLLING 2
+#define WAITING_TAKEOFF 3
+#define TAKEOFF 4
+#define FLYING 5
 #define PRIORITY_IN_FLIGHT 6
+#define WAITING_IN_FLIGHT 7
+#define LANDING 8
+#define FREEING_RUNWAY 9
 
 #define NOT_REDIRECTED -1
 #define MUST_NOT_REDIRECT -2
 
-#define NORMAL 0
-#define CRITICAL_FUEL 1
-#define TECHNICAL_PROBLEM 2
+#define NONE -1
+#define CRITICAL_FUEL 0
+#define TECHNICAL_PROBLEM 1
 
 #include <stdbool.h>
 
 extern const char *sizes[];
 extern const char *states[];
-extern const char *conditions[];
+extern const char *alerts[];
 extern const int sizeRequest;
 extern const int sizeResponse;
 
@@ -39,7 +50,7 @@ typedef struct {
 typedef struct {
     int id;
     char *model;
-    int fuel;
+    float fuel;
     int start;
     int destination;
     int actual;
@@ -47,10 +58,10 @@ typedef struct {
     float latitude;
     float longitude;
     float total_distance;
-    int progress;
+    float progress;
     int runwayNumber;
     int state;
-    int condition;
+    int alert;
     bool large;
 } plane_struct;
 
@@ -78,6 +89,8 @@ plane_struct getRequestResponse();
 void respondInfoRequest(const plane_struct *info);
 
 void asyncSleep(int nsec, plane_struct *info);
+
+void land(plane_struct *info);
 
 int fly(plane_struct *info);
 

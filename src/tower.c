@@ -103,7 +103,7 @@ void cleanupHandler(void *arg) {
 }
 
 void incrementTime(struct timespec *ts) {
-    ts->tv_nsec += (RESPOND_EVERY + (rand() % 50)) * 1000 * 1000;
+    ts->tv_nsec += (UPDATE_EVERY + (rand() % 50)) * 1000 * 1000;
     if (ts->tv_nsec >= 1000 * 1000 * 1000) {
         ts->tv_nsec %= 1000 * 1000 * 1000;
         ts->tv_sec += 1;
@@ -146,7 +146,7 @@ void requestLanding(plane_struct *info) {
     }
 
     ++(numberPlanesWaiting[info->actual][solicitation]);
-    while (info->condition == NORMAL && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
+    while (info->alert == NONE && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour atterrir\n",
                    airportNames[info->actual], info->id, info->large ? "large" : "une");
@@ -162,11 +162,11 @@ void requestLanding(plane_struct *info) {
             res = pthread_cond_timedwait(&solicitations[info->actual][solicitation], &mutex[info->actual], &ts);
 
             decrementFuel(info);
-        } while (res == ETIMEDOUT && info->condition == NORMAL);
+        } while (res == ETIMEDOUT && info->alert == NONE);
     }
     --(numberPlanesWaiting[info->actual][solicitation]);
 
-    if (info->condition != NORMAL && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
+    if (info->alert != NONE && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 
         ++(numberPlanesWaiting[info->actual][solicitation]);
