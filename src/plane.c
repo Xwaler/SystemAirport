@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <pthread.h>
@@ -97,13 +98,15 @@ bool move(plane_struct *info) {
 }
 
 void sendRequestInfo(const int id) {
+    int res;
     planeRequest request = {id};
-    msgsnd(msgid, &request, sizeRequest, 0);
+    do { res = msgsnd(msgid, &request, sizeRequest, 0); } while (res == -1 && errno == EINTR);
 }
 
 plane_struct getRequestResponse() {
+    int res;
     planeResponse response;
-    msgrcv(msgid, &response, sizeResponse, 1, 0);
+    do { res = msgrcv(msgid, &response, sizeResponse, 1, 0); } while (res == -1 && errno == EINTR);
     return response.planeInfo;
 }
 

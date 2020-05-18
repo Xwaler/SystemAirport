@@ -18,13 +18,13 @@
 int msgid;
 bool logging;
 int firstLine = 0;
+int i, j, cx;
 
-bool usedIds[MAX_ID + 1] = {false};
-int planeIds[PLANE_NUMBER];
-
-char infos[PLANE_NUMBER * BUFFER];
+char infos[DISPLAYED_LINES * BUFFER];
 
 pthread_t planes[PLANE_NUMBER];
+bool usedIds[MAX_ID + 1] = {false};
+int planeIds[PLANE_NUMBER];
 plane_struct planeInfos[PLANE_NUMBER];
 
 void traitantSIGINT(const int signo) {
@@ -37,16 +37,16 @@ void traitantSIGINT(const int signo) {
     printf("ok\n");
 
     void* ret;
-    for (int i = 0; i < PLANE_NUMBER; ++i) {
-        printf("Destruction avions %i / %i\r", i + 1, PLANE_NUMBER);
+    for (int k = 0; k < PLANE_NUMBER; ++k) {
+        printf("Destruction avions %i / %i\r", k + 1, PLANE_NUMBER);
         fflush(stdout);
         usleep(1000);
 
-        if (pthread_cancel(planes[i]) != 0) {
+        if (pthread_cancel(planes[k]) != 0) {
             perror("Problème thread cancel");
             exit(1);
         }
-        pthread_join(planes[i], &ret);
+        pthread_join(planes[k], &ret);
         if (ret != PTHREAD_CANCELED) {
             perror("Problème thread join");
             exit(1);
@@ -67,21 +67,17 @@ void traitantSIGTSTP(const int signo) {
 
 int getNewId() {
     int id;
-    do {
-        id = (rand() % (MAX_ID - 1)) + 2; // pour eviter msg type == 0 (erreur) ou 1 (main)
-    } while (usedIds[id]);
+    do { id = (rand() % (MAX_ID - 1)) + 2; } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (main)
     usedIds[id] = true;
     return id;
 }
 
-void printPlanesInfo() {
-    int start = firstLine;
-    int end = start + DISPLAYED_LINES;
+void printPlanesInfo(int start, int end) {
     plane_struct info;
 
-    int cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
+    cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
                       "VOL  MODEL           TAILLE            DEPART --> DESTINATION  PROGRES  ETAT               REDIGIGE VERS  ALERTE     FUEL\n\n");
-    for (int i = start; i < end; ++i) {
+    for (i = start; i < end; ++i) {
         info = planeInfos[i];
         cx += snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx,
                        "%03i  %-14s  %-8s   %13s --> %-13s   %3.0f%%  %-17s  %-13s  %-9s  %3.0f%%\n",
@@ -90,7 +86,7 @@ void printPlanesInfo() {
                        info.redirection <= NOT_REDIRECTED ? "" : airportNames[info.redirection],
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
-    snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer à la page suivante)\n",
+    snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n",
              (int) (start / DISPLAYED_LINES) + 1, (int) PLANE_NUMBER / DISPLAYED_LINES);
 
     printf("\033[H");
@@ -112,7 +108,7 @@ void usage() {
 
 int main(int argc, char **argv) {
     int opt;
-    while ((opt = getopt(argc, argv, "hl:")) != -1) {
+    while ((opt = getopt(argc, argv, "hl")) != -1) {
         switch (opt) {
             case 'l':
                 logging = true;
@@ -129,7 +125,7 @@ int main(int argc, char **argv) {
     signal(SIGTSTP, traitantSIGTSTP);
 
     key_t clef;
-    int i, j, id;
+    int id, start, end;
     srand(getpid());
 
     printf("Création file de messages... ");
@@ -168,14 +164,17 @@ int main(int argc, char **argv) {
     plane_struct temp;
     while (true) {
         if (!logging) {
-            for (i = 0; i < PLANE_NUMBER; ++i) sendRequestInfo(planeIds[i]);
-            for (i = 0; i < PLANE_NUMBER; ++i) {
+            start = firstLine;
+            end = start + DISPLAYED_LINES;
+
+            for (i = start; i < end; ++i) sendRequestInfo(planeIds[i]);
+            for (i = start; i < end; ++i) {
                 temp = getRequestResponse();
-                j = 0;
+                j = start;
                 while (planeIds[j] != temp.id) ++j;
                 planeInfos[j] = temp;
             }
-            printPlanesInfo();
+            printPlanesInfo(start, end);
         } else {
             usleep(1000);
         }

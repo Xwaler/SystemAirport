@@ -222,9 +222,7 @@ void freeRunway(plane_struct *info) {
     *runwayFree = true;
     info->runwayNumber = NO_RUNWAY;
 
-    while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) {
-        i += increment;
-    }
+    while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) { i += increment; }
     if (logging) {
         switch (i) {
             case PRIORITIZED_LARGE_PLANE_LANDING:

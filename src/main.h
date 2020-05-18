@@ -16,7 +16,7 @@ void traitantSIGTSTP(int signo);
 
 int getNewId();
 
-void printPlanesInfo();
+void printPlanesInfo(int start, int end);
 
 void help();
 
