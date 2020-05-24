@@ -12,8 +12,12 @@
 #define LATITUDE 0
 #define LONGITUDE 1
 
-extern const char *airportNames[];
-extern const int airportPostitions[][2];
+typedef struct {
+    char* name;
+    position position;
+} airport;
+
+extern const airport airports[];
 extern pthread_mutex_t mutex[];
 
 void initRunways();
@@ -24,9 +28,7 @@ void cleanupHandler(void *arg);
 
 void incrementTime(struct timespec *ts);
 
-void vectorPlane(float *vector, float latitude, float longitude, const int *destination);
-
-void vectorAirport(float *vector, const int *start, const int *destination);
+void getVector(float vector[], const position *depart, const position *dest);
 
 float distance(float vector[]);
 

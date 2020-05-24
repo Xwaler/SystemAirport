@@ -57,9 +57,8 @@ void initPlane(plane_struct *info) {
     info->start = rand() % NUMBER_AIRPORT;
     info->destination = newDestination(info->start);
     info->redirection = NOT_REDIRECTED;
-    info->latitude = (float) airportPostitions[info->start][LATITUDE];
-    info->longitude = (float) airportPostitions[info->start][LONGITUDE];
-    vectorAirport(vector, airportPostitions[info->start], airportPostitions[info->destination]);
+    info->position = airports[info->start].position;
+    getVector(vector, &(airports[info->start].position), &(airports[info->destination].position));
     info->total_distance = distance(vector);
     info->runwayNumber = NO_RUNWAY;
     info->alert = NONE;
@@ -79,19 +78,18 @@ bool move(plane_struct *info) {
 
     int destination = info->redirection <= NOT_REDIRECTED ? info->destination : info->redirection;
 
-    vectorPlane(vector, info->latitude, info->longitude, airportPostitions[destination]);
+    getVector(vector, &(info->position), &(airports[destination].position));
     d = distance(vector);
 
     if (d <= SPEED) {
-        info->latitude = (float) airportPostitions[destination][LATITUDE];
-        info->longitude = (float) airportPostitions[destination][LONGITUDE];
+        info->position = airports[destination].position;
         info->progress = 100.f;
         return true;
     } else {
         float normalizedVector[2];
         normalize(normalizedVector, vector, d);
-        info->latitude += normalizedVector[0];
-        info->longitude += normalizedVector[1];
+        info->position.latitude += normalizedVector[0];
+        info->position.longitude += normalizedVector[1];
         info->progress = (info->total_distance - d) / info->total_distance * 100;
         return false;
     }
@@ -153,7 +151,7 @@ int fly(plane_struct *info) {
 
             for (int i = 0; i < NUMBER_AIRPORT; ++i) {
                 if (i != info->start) {
-                    vectorPlane(vector, info->latitude, info->longitude, airportPostitions[i]);
+                    getVector(vector, &(info->position), &(airports[i].position));
                     d = distance(vector);
                     if (d < distanceMin) {
                         distanceMin = d;
@@ -242,7 +240,7 @@ void *plane(void *arg) {
             default:
                 info.start = info.redirection;
         }
-        vectorAirport(vector, airportPostitions[info.start], airportPostitions[info.destination]);
+        getVector(vector, &(airports[info.start].position), &(airports[info.destination].position));
         info.total_distance = distance(vector);
     }
 

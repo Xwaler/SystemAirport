@@ -42,6 +42,11 @@ extern const int sizeRequest;
 extern const int sizeResponse;
 
 typedef struct {
+    float latitude;
+    float longitude;
+} position;
+
+typedef struct {
     int seats;
     char *model;
     bool large;
@@ -55,8 +60,7 @@ typedef struct {
     int destination;
     int actual;
     int redirection;
-    float latitude;
-    float longitude;
+    position position;
     float total_distance;
     float progress;
     int runwayNumber;

@@ -19,44 +19,39 @@
 
 #define NUMBER_SOLICITATION_TYPES 6
 
-const char *airportNames[] = {
-        "Paris",
-        "Marseille",
-        "Lyon",
-        "Toulouse",
-        "Nice",
-        "Nantes",
-        "Montpellier",
-        "Strasbourg",
-        "Bordeaux",
-        "Lille",
-        "Rennes",
-        "Reims",
-        "Saint-Etienne",
-        "Toulon",
-        "Le Havre",
-        "Grenoble",
-        "Dijon",
-        "Angers",
-        "Nimes",
-        "Le Mans",
-
-        "Londres",
-        "Amsterdam",
-        "Frankfort",
-        "Madrid",
-        "Barcelone",
-        "Istanbul",
-        "Moscou",
-        "Munich",
-        "Rome",
-        "Dublin",
+const airport airports[] = {
+        {"Paris", {4886, 229}},
+        {"Marseille", {4329, 536}},
+        {"Lyon", {4575, 483}},
+        {"Toulouse", {4360, 144}},
+        {"Nice", {4370, 726}},
+        {"Nantes", {4721, -155}},
+        {"Montpellier", {4858, 775}},
+        {"Strasbourg", {4544, -28}},
+        {"Bordeaux", {4450, -36}},
+        {"Lille", {5063, 306}},
+        {"Rennes", {4811, -168}},
+        {"Reims", {4925, 403}},
+        {"Saint-Etienne", {4559, 330}},
+        {"Toulon", {4312, 593}},
+        {"Le Havre", {4949, 10}},
+        {"Grenoble", {4518, 573}},
+        {"Dijon", {4732, 504}},
+        {"Angers", {4747, -55}},
+        {"Nimes", {4383, 436}},
+        {"Le Mans", {4800, 19}},
+        
+        {"Londres", {5150, -12}},
+        {"Amsterdam", {5237, 489}},
+        {"Frankfort", {5011, 868}},
+        {"Madrid", {4041, -370}},
+        {"Barcelone", {4138, 217}},
+        {"Istanbul", {4100, 289}},
+        {"Moscou", {5575, 376}},
+        {"Munich", {4813, 115}},
+        {"Rome", {4189, 124}},
+        {"Dublin", {5334, -626}}
 };
-const int airportPostitions[][2] = {{4886, 229}, {4329, 536}, {4575, 483}, {4360, 144}, {4370, 726}, {4721, -155},
-                                    {4858, 775}, {4544, -28}, {4450, -36}, {5063, 306}, {4811, -168}, {4925, 403},
-                                    {4559, 330}, {4312, 593}, {4949, 10}, {4518, 573}, {4732, 504}, {4747, -55},
-                                    {4383, 436}, {4800, 19}, {5150, -12}, {5237, 489}, {5011, 868}, {4041, -370},
-                                    {4138, 217}, {4100, 289}, {5575, 376}, {4813, 115}, {4189, 124}, {5334, -626}};
 
 int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
 pthread_cond_t solicitations[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
@@ -110,14 +105,9 @@ void incrementTime(struct timespec *ts) {
     }
 }
 
-void vectorPlane(float *vector, const float latitude, const float longitude, const int *destination) {
-    vector[LATITUDE] = (float) destination[LATITUDE] - latitude;
-    vector[LONGITUDE] = (float) destination[LONGITUDE] - longitude;
-}
-
-void vectorAirport(float *vector, const int *start, const int *destination) {
-    vector[LATITUDE] = (float) (destination[LATITUDE] - start[LATITUDE]);
-    vector[LONGITUDE] = (float) (destination[LONGITUDE] - start[LONGITUDE]);
+void getVector(float vector[], const position *depart, const position *dest) {
+    vector[LATITUDE] = (float) dest->latitude - depart->latitude;
+    vector[LONGITUDE] = (float) dest->longitude - depart->longitude;
 }
 
 float distance(float vector[]) {
@@ -141,7 +131,7 @@ void requestLanding(plane_struct *info) {
 
     if (logging) {
         printf("%s: Demande d'atterrissage %s avion %03i\n",
-                airportNames[info->actual], size, info->id);
+                airports[info->actual].name, size, info->id);
         fflush(stdout);
     }
 
@@ -149,7 +139,7 @@ void requestLanding(plane_struct *info) {
     while (info->alert == NONE && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour atterrir\n",
-                   airportNames[info->actual], info->id, info->large ? "large" : "une");
+                   airports[info->actual].name, info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -173,7 +163,7 @@ void requestLanding(plane_struct *info) {
         do {
             if (logging) {
                 printf("%s: Avion %03i attend %s piste pour atterrir d'urgence\n",
-                       airportNames[info->actual], info->id, info->large ? "large" : "une");
+                       airports[info->actual].name, info->id, info->large ? "large" : "une");
                 fflush(stdout);
             }
 
@@ -199,7 +189,7 @@ void requestLanding(plane_struct *info) {
     }
     if (logging) {
         printf("%s: Avion %03i atterit sur %s piste\n",
-               airportNames[info->actual], info->id, sizes[info->runwayNumber]);
+               airports[info->actual].name, info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 
@@ -216,7 +206,7 @@ void freeRunway(plane_struct *info) {
 
     if (logging) {
         printf("%s: Le %s avion %03i libère %s piste\n",
-               airportNames[info->actual], sizes[info->large], info->id, runwaySize);
+               airports[info->actual].name, sizes[info->large], info->id, runwaySize);
         fflush(stdout);
     }
     *runwayFree = true;
@@ -227,27 +217,27 @@ void freeRunway(plane_struct *info) {
         switch (i) {
             case PRIORITIZED_LARGE_PLANE_LANDING:
                 printf("%s: Donne la %s piste à un gros avion prioritaire pour atterir\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
                 break;
             case PRIORITIZED_SMALL_PLANE_LANDING:
                 printf("%s: Donne la %s piste à un petit avion prioritaire pour atterir\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
                 break;
             case LARGE_PLANE_LANDING:
                 printf("%s: Donne la %s piste à un gros avion pour atterir\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
                 break;
             case SMALL_PLANE_LANDING:
                 printf("%s: Donne la %s piste à un petit avion pour atterir\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
                 break;
             case LARGE_PLANE_TAKEOFF:
                 printf("%s: Donne la %s piste à un gros avion pour décoler\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
                 break;
             case SMALL_PLANE_TAKEOFF:
                 printf("%s: Donne la %s piste à un petit avion pour décoler\n",
-                        airportNames[info->actual], runwaySize);
+                        airports[info->actual].name, runwaySize);
             default:
                 break;
         }
@@ -270,7 +260,7 @@ void requestTakeoff(plane_struct *info){
 
     if (logging) {
         printf("%s: Demande de décolage %s avion %03i\n",
-               airportNames[info->actual], size, info->id);
+               airports[info->actual].name, size, info->id);
         fflush(stdout);
     }
 
@@ -278,7 +268,7 @@ void requestTakeoff(plane_struct *info){
     while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual]){
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour décoler\n",
-                   airportNames[info->actual], info->id, info->large ? "large" : "une");
+                   airports[info->actual].name, info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -300,7 +290,7 @@ void requestTakeoff(plane_struct *info){
     }
     if (logging) {
         printf("%s: Avion %03i décole sur %s piste\n",
-               airportNames[info->actual], info->id, sizes[info->runwayNumber]);
+               airports[info->actual].name, info->id, sizes[info->runwayNumber]);
         fflush(stdout);
     }
 

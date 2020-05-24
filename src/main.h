@@ -3,9 +3,10 @@
 
 #include <stdbool.h>
 
-#define DISPLAYED_LINES 19
-#define PLANE_NUMBER (12 * DISPLAYED_LINES)
-#define BUFFER 200
+#define LINES_PER_PAGE 19
+#define PAGES 12
+#define PLANE_NUMBER (PAGES * LINES_PER_PAGE)
+#define LINE_BUFFER 200
 
 extern int msgid;
 extern bool logging;

@@ -20,7 +20,7 @@ bool logging;
 int firstLine = 0;
 int i, j, cx;
 
-char infos[DISPLAYED_LINES * BUFFER];
+char infos[LINES_PER_PAGE * LINE_BUFFER];
 
 pthread_t planes[PLANE_NUMBER];
 bool usedIds[MAX_ID + 1] = {false};
@@ -62,12 +62,12 @@ void traitantSIGINT(const int signo) {
 
 void traitantSIGTSTP(const int signo) {
     printf("\033[2K");
-    firstLine = (firstLine + DISPLAYED_LINES) % PLANE_NUMBER;
+    firstLine = (firstLine + LINES_PER_PAGE) % PLANE_NUMBER;
 }
 
 int getNewId() {
     int id;
-    do { id = (rand() % (MAX_ID - 1)) + 2; } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (main)
+    do { id = (rand() % (MAX_ID - 1)) + 2; } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (tour de controle)
     usedIds[id] = true;
     return id;
 }
@@ -75,19 +75,19 @@ int getNewId() {
 void printPlanesInfo(int start, int end) {
     plane_struct info;
 
-    cx = snprintf(infos, DISPLAYED_LINES * BUFFER,
-                      "VOL  MODEL           TAILLE            DEPART --> DESTINATION  PROGRES  ETAT               REDIGIGE VERS  ALERTE     FUEL\n\n");
+    cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
+                  "VOL  MODELE          TAILLE            DEPART --> DESTINATION  PROGRES  ETAT               REDIGIGE VERS  ALERTE     FUEL\n\n");
     for (i = start; i < end; ++i) {
         info = planeInfos[i];
-        cx += snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx,
+        cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                        "%03i  %-14s  %-8s   %13s --> %-13s   %3.0f%%  %-17s  %-13s  %-9s  %3.0f%%\n",
-                       info.id, info.model, sizes[info.large], airportNames[info.start],
-                       airportNames[info.destination], info.progress, states[info.state],
-                       info.redirection <= NOT_REDIRECTED ? "" : airportNames[info.redirection],
+                       info.id, info.model, sizes[info.large], airports[info.start].name,
+                       airports[info.destination].name, info.progress, states[info.state],
+                       info.redirection <= NOT_REDIRECTED ? "" : airports[info.redirection].name,
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
-    snprintf(infos + cx, DISPLAYED_LINES * BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n",
-             (int) (start / DISPLAYED_LINES) + 1, (int) PLANE_NUMBER / DISPLAYED_LINES);
+    snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n",
+             (int) (start / LINES_PER_PAGE) + 1, PAGES);
 
     printf("\033[H");
     printf("%s", infos);
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
     while (true) {
         if (!logging) {
             start = firstLine;
-            end = start + DISPLAYED_LINES;
+            end = start + LINES_PER_PAGE;
 
             for (i = start; i < end; ++i) sendRequestInfo(planeIds[i]);
             for (i = start; i < end; ++i) {
