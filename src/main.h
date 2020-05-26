@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #define LINES_PER_PAGE 19
-#define PAGES 12
+#define PAGES 30
 #define PLANE_NUMBER (PAGES * LINES_PER_PAGE)
 #define LINE_BUFFER 200
 
@@ -17,7 +17,7 @@ void traitantSIGTSTP(int signo);
 
 int getNewId();
 
-void printPlanesInfo(int start, int end);
+void printPlanesInfo(int page);
 
 void help();
 

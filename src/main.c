@@ -21,11 +21,12 @@ int firstLine = 0;
 int i, j, cx;
 
 char infos[LINES_PER_PAGE * LINE_BUFFER];
+plane_struct planesBuffer[LINES_PER_PAGE];
+char progress[5];
 
 pthread_t planes[PLANE_NUMBER];
 bool usedIds[MAX_ID + 1] = {false};
 int planeIds[PLANE_NUMBER];
-plane_struct planeInfos[PLANE_NUMBER];
 
 void traitantSIGINT(const int signo) {
     printf("\033[2K");
@@ -40,7 +41,7 @@ void traitantSIGINT(const int signo) {
     for (int k = 0; k < PLANE_NUMBER; ++k) {
         printf("Destruction avions %i / %i\r", k + 1, PLANE_NUMBER);
         fflush(stdout);
-        usleep(1000);
+        usleep(500);
 
         if (pthread_cancel(planes[k]) != 0) {
             perror("Problème thread cancel");
@@ -72,22 +73,28 @@ int getNewId() {
     return id;
 }
 
-void printPlanesInfo(int start, int end) {
+void printPlanesInfo(int page) {
     plane_struct info;
 
     cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
-                  "VOL  MODELE          TAILLE            DEPART --> DESTINATION  PROGRES  ETAT               REDIGIGE VERS  ALERTE     FUEL\n\n");
-    for (i = start; i < end; ++i) {
-        info = planeInfos[i];
+                  "  VOL   MODELE    TAILLE         ORIGINE --> DESTINATION                  ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
+    for (i = 0; i < LINES_PER_PAGE; ++i) {
+        info = planesBuffer[i];
+        if (info.progress == 0.f) {
+            strcpy(progress, "");
+        } else {
+            sprintf(progress, "%3.0f%%", roundf(info.progress));
+        }
+
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-                       "%03i  %-14s  %-8s   %13s --> %-13s   %3.0f%%  %-17s  %-13s  %-9s  %3.0f%%\n",
-                       info.id, info.model, sizes[info.large], airports[info.start].name,
-                       airports[info.destination].name, info.progress, states[info.state],
+                       "| %03i | %-7s | %-5s |  %13s --> %-13s   %4s | %-17s | %-13s | %-9s | %3.0f%% |\n",
+                       info.id, info.model, sizes[info.large], airports[info.origin].name,
+                       airports[info.destination].name, progress, states[info.state],
                        info.redirection <= NOT_REDIRECTED ? "" : airports[info.redirection].name,
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
-    snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx, "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n",
-             (int) (start / LINES_PER_PAGE) + 1, PAGES);
+    cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
+            "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n", page, PAGES);
 
     printf("\033[H");
     printf("%s", infos);
@@ -146,7 +153,7 @@ int main(int argc, char **argv) {
     for (i = 0; i < PLANE_NUMBER; ++i) {
         printf("Creation avions %i / %i\r", i + 1, PLANE_NUMBER);
         fflush(stdout);
-        usleep(1000);
+        usleep(500);
 
         id = getNewId();
         planeIds[i] = id;
@@ -172,9 +179,9 @@ int main(int argc, char **argv) {
                 temp = getRequestResponse();
                 j = start;
                 while (planeIds[j] != temp.id) ++j;
-                planeInfos[j] = temp;
+                planesBuffer[j % LINES_PER_PAGE] = temp;
             }
-            printPlanesInfo(start, end);
+            printPlanesInfo((int) (start / LINES_PER_PAGE) + 1);
         } else {
             usleep(1000);
         }

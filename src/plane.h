@@ -3,10 +3,10 @@
 
 #include "main.h"
 
-#define CRITICAL_FUEL_LIMIT 25
+#define CRITICAL_FUEL_LIMIT 30
 #define UPDATE_EVERY 100
-#define FUEL_CONSUMPTION_RATE .33f
-#define SPEED 5
+#define FUEL_CONSUMPTION_RATE .20f
+#define SPEED 4
 #define TECHNICAL_PROBLEM_VALUE 3000
 
 #define REFUEL_DURATION 2
@@ -22,7 +22,7 @@
 #define TAKEOFF 4
 #define FLYING 5
 #define PRIORITY_IN_FLIGHT 6
-#define WAITING_IN_FLIGHT 7
+#define WAITING_LANDING 7
 #define LANDING 8
 #define FREEING_RUNWAY 9
 
@@ -32,6 +32,7 @@
 #define NONE -1
 #define CRITICAL_FUEL 0
 #define TECHNICAL_PROBLEM 1
+#define CRASHED 2
 
 #include <stdbool.h>
 
@@ -56,7 +57,7 @@ typedef struct {
     int id;
     char *model;
     float fuel;
-    int start;
+    int origin;
     int destination;
     int actual;
     int redirection;
@@ -78,7 +79,7 @@ typedef struct {
     plane_struct planeInfo;
 } planeResponse;
 
-int newDestination(int depart);
+int newDestination(int origine);
 
 void initPlane(plane_struct *info);
 
@@ -94,7 +95,7 @@ void respondInfoRequest(const plane_struct *info);
 
 void asyncSleep(int nsec, plane_struct *info);
 
-void land(plane_struct *info);
+void landOrTakeoff(int nsec, plane_struct *info);
 
 int fly(plane_struct *info);
 

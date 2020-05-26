@@ -12,38 +12,40 @@
 #include "plane.h"
 
 const plane_type planeType[] = {
-        {164, "Boeing 737-800", false},
-        {149, "Boeing 737-700", false},
-        {375, "Boeing 767-800", true},
-        {186, "Airbus A320", false},
-        {220, "Airbus A321", true},
+        {164, "737-800", false},
+        {149, "737-700", false},
+        {375, "767-800", true},
+        {186, "A320", false},
+        {220, "A321", false},
+        {868, "A380", true},
 };
 const char *states[] = {"au hangar",
                         "embarquement",
                         "en roulement",
-                        "decole (attente)",
+                        "decole  (attente)",
                         "decole",
-                        "atterit",
                         "en vol",
-                        "atterit (attente)",
                         "en vol (priorite)",
+                        "atterit (attente)",
+                        "atterit",
                         "libere piste",
 };
 const char *alerts[] = {
         "carburant",
         "technique",
+        "crash",
 };
 const char *sizes[] = {
-        "petit(e)",
+        "petit",
         "large",
 };
 const int numberPlaneTypes = sizeof(planeType) / sizeof(plane_type);
 const int sizeRequest = sizeof(planeRequest) - sizeof(long);
 const int sizeResponse = sizeof(planeResponse);
 
-int newDestination(const int depart) {
+int newDestination(const int origine) {
     int destination = rand() % (NUMBER_AIRPORT - 1);
-    if (destination >= depart) {
+    if (destination >= origine) {
         ++destination;
     } return destination;
 }
@@ -54,22 +56,25 @@ void initPlane(plane_struct *info) {
 
     info->model = planeType[i].model;
     info->large = planeType[i].large;
-    info->start = rand() % NUMBER_AIRPORT;
-    info->destination = newDestination(info->start);
+    info->origin = rand() % NUMBER_AIRPORT;
+    info->destination = newDestination(info->origin);
     info->redirection = NOT_REDIRECTED;
-    info->position = airports[info->start].position;
-    getVector(vector, &(airports[info->start].position), &(airports[info->destination].position));
+    info->position = airports[info->origin].position;
+    getVector(vector, &(airports[info->origin].position), &(airports[info->destination].position));
     info->total_distance = distance(vector);
     info->runwayNumber = NO_RUNWAY;
     info->alert = NONE;
-    info->fuel = 100;
+    info->fuel = 100.f;
 }
 
 void decrementFuel(plane_struct *info) {
-    info->fuel -= FUEL_CONSUMPTION_RATE;
-    if (info->fuel <= CRITICAL_FUEL_LIMIT && info->alert == NONE) {
+    info->fuel -= info->state == LANDING ? FUEL_CONSUMPTION_RATE / 2: FUEL_CONSUMPTION_RATE;
+    if (info->alert == NONE && info->fuel <= CRITICAL_FUEL_LIMIT) {
         info->alert = CRITICAL_FUEL;
-        info->state = LANDING;
+        info->state = PRIORITY_IN_FLIGHT;
+    } else if (info->fuel <= 0) {
+        info->fuel = 0;
+        info->alert = CRASHED;
     }
 }
 
@@ -84,14 +89,14 @@ bool move(plane_struct *info) {
     if (d <= SPEED) {
         info->position = airports[destination].position;
         info->progress = 100.f;
-        return true;
+        return false;
     } else {
         float normalizedVector[2];
         normalize(normalizedVector, vector, d);
         info->position.latitude += normalizedVector[0];
         info->position.longitude += normalizedVector[1];
         info->progress = (info->total_distance - d) / info->total_distance * 100;
-        return false;
+        return true;
     }
 }
 
@@ -125,23 +130,24 @@ void asyncSleep(const int nsec, plane_struct *info) {
     }
 }
 
-void land(plane_struct *info) {
-    int n = LANDING_DURATION * 1000 / UPDATE_EVERY;
-    for (int i = 0; i < n; ++i) {
+void landOrTakeoff(int nsec, plane_struct *info) {
+    int i = 0, n = nsec * 1000 / UPDATE_EVERY;
+    while (i < n && info->alert != CRASHED) {
         decrementFuel(info);
         respondInfoRequest(info);
         usleep(UPDATE_EVERY * 1000);
+        ++i;
     }
 }
 
 int fly(plane_struct *info) {
-    while (move(info) == 0) {
+    while (info->alert != CRASHED && move(info)) {
         decrementFuel(info);
 
         if (info->alert == NONE) {
             if (!(rand() % TECHNICAL_PROBLEM_VALUE)) {
                 info->alert = TECHNICAL_PROBLEM;
-                info->state = LANDING;
+                info->state = PRIORITY_IN_FLIGHT;
             }
         }
         if (info->alert != NONE && info->redirection == NOT_REDIRECTED) {
@@ -150,7 +156,7 @@ int fly(plane_struct *info) {
             float vector[2];
 
             for (int i = 0; i < NUMBER_AIRPORT; ++i) {
-                if (i != info->start) {
+                if (i != info->origin) {
                     getVector(vector, &(info->position), &(airports[i].position));
                     d = distance(vector);
                     if (d < distanceMin) {
@@ -188,8 +194,8 @@ void *plane(void *arg) {
     info.id = *((int *) arg);
     initPlane(&info);
 
-    while (true) {
-        info.actual = info.start;
+    while (info.alert != CRASHED) {
+        info.actual = info.origin;
 
         if (info.redirection <= NOT_REDIRECTED) {
             info.state = EMBARKMENT;
@@ -205,43 +211,52 @@ void *plane(void *arg) {
         requestTakeoff(&info);
 
         info.state = TAKEOFF;
-        asyncSleep(TAKEOFF_DURATION, &info);
+        landOrTakeoff(TAKEOFF_DURATION, &info);
 
         freeRunway(&info);
-
-        info.state = PRIORITY_IN_FLIGHT;
-        fly(&info);
-
-        info.actual = info.redirection <= NOT_REDIRECTED ? info.destination : info.redirection;
-        requestLanding(&info);
 
         info.state = FLYING;
-        land(&info);
+        fly(&info);
 
-        info.state = FREEING_RUNWAY;
-        freeRunway(&info);
+        if (info.alert != CRASHED) {
+            info.actual = info.redirection <= NOT_REDIRECTED ? info.destination : info.redirection;
+            requestLanding(&info);
 
-        info.progress = 0;
-        info.state = ROLLING;
-        asyncSleep(ROLLING_DURATION, &info);
+            info.state = LANDING;
+            landOrTakeoff(LANDING_DURATION, &info);
 
-        info.state = HANGAR;
-        asyncSleep(REFUEL_DURATION, &info);
+            if (info.alert != CRASHED) {
+                info.state = FREEING_RUNWAY;
+                freeRunway(&info);
 
-        info.alert = NONE;
-        info.fuel = 100.f;
-        switch (info.redirection) {
-            case MUST_NOT_REDIRECT:
-                info.redirection = NOT_REDIRECTED;
-            case NOT_REDIRECTED:
-                info.start = info.destination;
-                info.destination = newDestination(info.start);
-                break;
-            default:
-                info.start = info.redirection;
+                info.state = ROLLING;
+                asyncSleep(ROLLING_DURATION, &info);
+                info.progress = 0;
+
+                info.state = HANGAR;
+                asyncSleep(REFUEL_DURATION, &info);
+
+                info.alert = NONE;
+                info.fuel = 100.f;
+                switch (info.redirection) {
+                    case MUST_NOT_REDIRECT:
+                        info.redirection = NOT_REDIRECTED;
+                    case NOT_REDIRECTED:
+                        info.origin = info.destination;
+                        info.destination = newDestination(info.origin);
+                        break;
+                    default:
+                        info.origin = info.redirection;
+                }
+                getVector(vector, &(airports[info.origin].position), &(airports[info.destination].position));
+                info.total_distance = distance(vector);
+            }
         }
-        getVector(vector, &(airports[info.start].position), &(airports[info.destination].position));
-        info.total_distance = distance(vector);
+    }
+
+    while (true) {
+        respondInfoRequest(&info);
+        usleep(UPDATE_EVERY * 1000);
     }
 
     pthread_cleanup_pop(1);

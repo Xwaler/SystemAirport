@@ -10,15 +10,6 @@
 #include "main.h"
 #include "tower.h"
 
-#define PRIORITIZED_LARGE_PLANE_LANDING 0
-#define PRIORITIZED_SMALL_PLANE_LANDING 1
-#define LARGE_PLANE_LANDING 2
-#define SMALL_PLANE_LANDING 3
-#define LARGE_PLANE_TAKEOFF 4
-#define SMALL_PLANE_TAKEOFF 5
-
-#define NUMBER_SOLICITATION_TYPES 6
-
 const airport airports[] = {
         {"Paris", {4886, 229}},
         {"Marseille", {4329, 536}},
@@ -65,7 +56,7 @@ void initRunways() {
     for (int i = 0; i < NUMBER_AIRPORT; ++i) {
         printf("Creation aéroports %i / %i\r", i + 1, NUMBER_AIRPORT);
         fflush(stdout);
-        usleep(1000);
+        usleep(500);
 
         pthread_mutex_init(&(mutex[i]), 0);
 
@@ -80,7 +71,7 @@ void deleteRunways() {
     for (int i = 0; i < NUMBER_AIRPORT; ++i) {
         printf("Destruction aéroports %i / %i\r", i + 1, NUMBER_AIRPORT);
         fflush(stdout);
-        usleep(1000);
+        usleep(500);
         for (int j = 0; j < NUMBER_SOLICITATION_TYPES; ++j) {
             if (pthread_cond_destroy(&(solicitations[i][j])) != 0) {
                 perror("Problème destruction cond");
@@ -105,9 +96,9 @@ void incrementTime(struct timespec *ts) {
     }
 }
 
-void getVector(float vector[], const position *depart, const position *dest) {
-    vector[LATITUDE] = (float) dest->latitude - depart->latitude;
-    vector[LONGITUDE] = (float) dest->longitude - depart->longitude;
+void getVector(float vector[], const position *origine, const position *dest) {
+    vector[LATITUDE] = (float) dest->latitude - origine->latitude;
+    vector[LONGITUDE] = (float) dest->longitude - origine->longitude;
 }
 
 float distance(float vector[]) {
@@ -143,7 +134,7 @@ void requestLanding(plane_struct *info) {
             fflush(stdout);
         }
 
-        info->state = WAITING_IN_FLIGHT;
+        info->state = WAITING_LANDING;
         decrementFuel(info);
         do {
             respondInfoRequest(info);
@@ -170,8 +161,13 @@ void requestLanding(plane_struct *info) {
             decrementFuel(info);
             do {
                 respondInfoRequest(info);
-                incrementTime(&ts);
+                if (info->alert == CRASHED) {
+                    --(numberPlanesWaiting[info->actual][solicitation]);
+                    pthread_mutex_unlock(&(mutex[info->actual]));
+                    return;
+                }
 
+                incrementTime(&ts);
                 res = pthread_cond_timedwait(&solicitations[info->actual][solicitation], &mutex[info->actual], &ts);
 
                 decrementFuel(info);
