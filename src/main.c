@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include <math.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
@@ -20,7 +21,10 @@ bool logging;
 int firstLine = 0;
 int i, j, cx;
 
-char infos[LINES_PER_PAGE * LINE_BUFFER];
+char infos[(LINES_PER_PAGE + 2) * LINE_BUFFER];
+char buf_d1[50], buf_d2[50];
+time_t now;
+char date_format[] = "%H:%M:%S";
 plane_struct planesBuffer[LINES_PER_PAGE];
 char progress[5];
 
@@ -75,26 +79,48 @@ int getNewId() {
 
 void printPlanesInfo(int page) {
     plane_struct info;
+    int *waiting;
+    time(&now);
 
     cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
-                  "  VOL   MODELE    TAILLE         ORIGINE --> DESTINATION                  ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
+                  "  VOL   MODELE    TAILLE                  ORIGINE --> DESTINATION                          ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
     for (i = 0; i < LINES_PER_PAGE; ++i) {
         info = planesBuffer[i];
+
         if (info.progress == 0.f) {
             strcpy(progress, "");
         } else {
             sprintf(progress, "%3.0f%%", roundf(info.progress));
         }
 
+        strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&info.timeTakeoff));
+        strftime(buf_d2, sizeof(buf_d2), date_format, localtime(&info.timeLanding));
+
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-                       "| %03i | %-7s | %-5s |  %13s --> %-13s   %4s | %-17s | %-13s | %-9s | %3.0f%% |\n",
-                       info.id, info.model, sizes[info.large], airports[info.origin].name,
-                       airports[info.destination].name, progress, states[info.state],
+                       "| %03i | %-7s | %-5s | \033[0;3%im%s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
+                       info.id, info.model, sizes[info.large],
+                       info.lateTakeoff ? 3 : info.takeoffOnTime ? 2 : 7, buf_d1,
+                       info.hasBeenRedirected ? 3 : 7, airports[info.origin].name,
+                       airports[info.destination].name,
+                       info.lateLanding ? 3 : info.state <= HANGAR ? 2 : 7, buf_d2,
+                       progress, states[info.state],
                        info.redirection <= NOT_REDIRECTED ? "" : airports[info.redirection].name,
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
+
+    waiting = (int *) &numberPlanesWaiting[page];
+    pthread_mutex_lock(&(mutex[page]));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante)\n", page, PAGES);
+            "\n| Aeroport      | Atterissage large   | Atterissage petit   | Decolage large      | Decolage petit      |\n"
+            "| %-13s | %02i (%02i prioritaire) | %02i (%02i prioritaire) | %02i (%02i prioritaire) | %02i (%02i prioritaire) |\n",
+                   airports[page].name,
+                   waiting[4] + waiting[0], waiting[0], waiting[5] + waiting[1], waiting[1],
+                   waiting[6] + waiting[2], waiting[2], waiting[7] + waiting[3], waiting[3]);
+    pthread_mutex_unlock(&(mutex[page]));
+
+    strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&now));
+    cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
+                   "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante) - Heure locale %s\n", page + 1, PAGES, buf_d1);
 
     printf("\033[H");
     printf("%s", infos);
@@ -181,7 +207,7 @@ int main(int argc, char **argv) {
                 while (planeIds[j] != temp.id) ++j;
                 planesBuffer[j % LINES_PER_PAGE] = temp;
             }
-            printPlanesInfo((int) (start / LINES_PER_PAGE) + 1);
+            printPlanesInfo((int) (start / LINES_PER_PAGE));
         } else {
             usleep(1000);
         }

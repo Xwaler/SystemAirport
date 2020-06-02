@@ -261,21 +261,44 @@ void requestTakeoff(plane_struct *info){
     }
 
     ++(numberPlanesWaiting[info->actual][solicitation]);
-    while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual]){
+    while (!info->lateTakeoff && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]){
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour décoler\n",
                    airports[info->actual].name, info->id, info->large ? "large" : "une");
             fflush(stdout);
         }
 
+        info->state = WAITING_TAKEOFF;
         do {
+            checkIfLate(info);
             respondInfoRequest(info);
             incrementTime(&ts);
 
             res = pthread_cond_timedwait(&(solicitations[info->actual][solicitation]), &(mutex[info->actual]), &ts);
-        } while (res == ETIMEDOUT);
+        } while (res == ETIMEDOUT && !info->lateTakeoff);
     }
     --(numberPlanesWaiting[info->actual][solicitation]);
+
+    if (info->lateTakeoff && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
+        solicitation = info->large ? PRIORITIZED_LARGE_PLANE_TAKEOFF : PRIORITIZED_SMALL_PLANE_TAKEOFF;
+
+        ++(numberPlanesWaiting[info->actual][solicitation]);
+        do {
+            if (logging) {
+                printf("%s: Avion %03i attend %s piste pour décoler d'urgence\n",
+                       airports[info->actual].name, info->id, info->large ? "large" : "une");
+                fflush(stdout);
+            }
+
+            do {
+                respondInfoRequest(info);
+                incrementTime(&ts);
+
+                res = pthread_cond_timedwait(&solicitations[info->actual][solicitation], &mutex[info->actual], &ts);
+            } while (res == ETIMEDOUT);
+        } while (!(*preferedRunwayFree) && !largeRunwayFree[info->actual]);
+        --(numberPlanesWaiting[info->actual][solicitation]);
+    }
 
     if (*preferedRunwayFree) {
         *preferedRunwayFree = false;

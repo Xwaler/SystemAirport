@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <pthread.h>
@@ -19,21 +20,22 @@ const plane_type planeType[] = {
         {220, "A321", false},
         {868, "A380", true},
 };
-const char *states[] = {"au hangar",
+const char *states[] = {"desembarquement",
+                        "au hangar",
                         "embarquement",
                         "en roulement",
-                        "decole  (attente)",
+                        "\033[0;33mdecole  (attente)\033[0;37m",
+                        "\033[0;31mdecole (priorite)\033[0;37m",
                         "decole",
                         "en vol",
-                        "en vol (priorite)",
-                        "atterit (attente)",
+                        "\033[0;31men vol (priorite)\033[0;37m",
+                        "\033[0;33matterit (attente)\033[0;37m",
                         "atterit",
-                        "libere piste",
 };
 const char *alerts[] = {
-        "carburant",
-        "technique",
-        "crash",
+        "\033[0;31mcarburant\033[0;37m",
+        "\033[0;31mtechnique\033[0;37m",
+        "\033[0;31mcrash\033[0;37m",
 };
 const char *sizes[] = {
         "petit",
@@ -58,13 +60,31 @@ void initPlane(plane_struct *info) {
     info->large = planeType[i].large;
     info->origin = rand() % NUMBER_AIRPORT;
     info->destination = newDestination(info->origin);
+    info->timeLanding = 0;
+    info->timeTakeoff = 0;
     info->redirection = NOT_REDIRECTED;
+    info->takeoffOnTime = false;
     info->position = airports[info->origin].position;
     getVector(vector, &(airports[info->origin].position), &(airports[info->destination].position));
-    info->total_distance = distance(vector);
+    info->totalDistance = distance(vector);
     info->runwayNumber = NO_RUNWAY;
+    info->state = HANGAR;
     info->alert = NONE;
+    info->lateTakeoff = false;
+    info->lateLanding = false;
     info->fuel = 100.f;
+}
+
+void checkIfLate(plane_struct *info) {
+    time_t now;
+    time(&now);
+    if (info->state == WAITING_TAKEOFF && now > info->timeTakeoff) {
+        info->lateTakeoff = true;
+        info->state = PRIORITY_TAKEOFF;
+    } else if (info->state == FLYING && now > info->timeLanding) {
+        info->lateLanding = true;
+        info->state = PRIORITY_IN_FLIGHT;
+    }
 }
 
 void decrementFuel(plane_struct *info) {
@@ -76,6 +96,7 @@ void decrementFuel(plane_struct *info) {
         info->fuel = 0;
         info->alert = CRASHED;
     }
+    checkIfLate(info);
 }
 
 bool move(plane_struct *info) {
@@ -95,7 +116,7 @@ bool move(plane_struct *info) {
         normalize(normalizedVector, vector, d);
         info->position.latitude += normalizedVector[0];
         info->position.longitude += normalizedVector[1];
-        info->progress = (info->total_distance - d) / info->total_distance * 100;
+        info->progress = (info->totalDistance - d) / info->totalDistance * 100;
         return true;
     }
 }
@@ -168,7 +189,7 @@ int fly(plane_struct *info) {
 
             if (closestAirport != info->destination) {
                 info->redirection = closestAirport;
-                info->total_distance = distanceMin;
+                info->totalDistance = distanceMin;
                 info->progress = 0;
             } else {
                 info->redirection = MUST_NOT_REDIRECT;
@@ -191,29 +212,42 @@ void *plane(void *arg) {
 
     float vector[2];
     plane_struct info;
+    time_t now;
     info.id = *((int *) arg);
-    initPlane(&info);
 
+    initPlane(&info);
     while (info.alert != CRASHED) {
         info.actual = info.origin;
 
         if (info.redirection <= NOT_REDIRECTED) {
+            info.timeTakeoff = time(NULL) + EMBARKMENT_DURATION + ROLLING_DURATION + TAKEOFF_DURATION + ACCEPTABLE_LATENCY;
+            info.timeLanding = info.timeTakeoff + ((info.totalDistance / SPEED) * (UPDATE_EVERY / 1000.)) + LANDING_DURATION + ROLLING_DURATION + ACCEPTABLE_LATENCY;
+            info.lateTakeoff = false;
+            info.lateLanding = false;
+            info.hasBeenRedirected = false;
+            info.takeoffOnTime = false;
+
             info.state = EMBARKMENT;
             asyncSleep(EMBARKMENT_DURATION, &info);
         } else {
             info.redirection = NOT_REDIRECTED;
+            info.hasBeenRedirected = true;
         }
 
         info.state = ROLLING;
         asyncSleep(ROLLING_DURATION, &info);
 
-        info.state = WAITING_TAKEOFF;
         requestTakeoff(&info);
 
         info.state = TAKEOFF;
         landOrTakeoff(TAKEOFF_DURATION, &info);
 
         freeRunway(&info);
+
+        if (info.redirection <= NOT_REDIRECTED) {
+            time(&now);
+            info.takeoffOnTime = now <= info.timeTakeoff;
+        }
 
         info.state = FLYING;
         fly(&info);
@@ -225,13 +259,17 @@ void *plane(void *arg) {
             info.state = LANDING;
             landOrTakeoff(LANDING_DURATION, &info);
 
-            if (info.alert != CRASHED) {
-                info.state = FREEING_RUNWAY;
-                freeRunway(&info);
+            freeRunway(&info);
 
+            if (info.alert != CRASHED) {
                 info.state = ROLLING;
                 asyncSleep(ROLLING_DURATION, &info);
                 info.progress = 0;
+
+                if (info.redirection <= NOT_REDIRECTED) {
+                    info.state = DISBARKEMENT;
+                    asyncSleep(DISBARKMENT_DURATION, &info);
+                }
 
                 info.state = HANGAR;
                 asyncSleep(REFUEL_DURATION, &info);
@@ -249,7 +287,7 @@ void *plane(void *arg) {
                         info.origin = info.redirection;
                 }
                 getVector(vector, &(airports[info.origin].position), &(airports[info.destination].position));
-                info.total_distance = distance(vector);
+                info.totalDistance = distance(vector);
             }
         }
     }

@@ -4,30 +4,34 @@
 #include "main.h"
 
 #define CRITICAL_FUEL_LIMIT 30
-#define UPDATE_EVERY 100
-#define FUEL_CONSUMPTION_RATE .20f
-#define SPEED 4
-#define TECHNICAL_PROBLEM_VALUE 3000
+#define UPDATE_EVERY 200
+#define FUEL_CONSUMPTION_RATE .40f
+#define SPEED 8
+#define TECHNICAL_PROBLEM_VALUE 1500
 
 #define REFUEL_DURATION 2
 #define EMBARKMENT_DURATION 2
 #define TAKEOFF_DURATION 2
 #define ROLLING_DURATION 1
 #define LANDING_DURATION 1
+#define DISBARKMENT_DURATION 2
 
-#define HANGAR 0
-#define EMBARKMENT 1
-#define ROLLING 2
-#define WAITING_TAKEOFF 3
-#define TAKEOFF 4
-#define FLYING 5
-#define PRIORITY_IN_FLIGHT 6
-#define WAITING_LANDING 7
-#define LANDING 8
-#define FREEING_RUNWAY 9
+#define ACCEPTABLE_LATENCY 4
 
-#define NOT_REDIRECTED -1
+#define DISBARKEMENT 0
+#define HANGAR 1
+#define EMBARKMENT 2
+#define ROLLING 3
+#define WAITING_TAKEOFF 4
+#define PRIORITY_TAKEOFF 5
+#define TAKEOFF 6
+#define FLYING 7
+#define PRIORITY_IN_FLIGHT 8
+#define WAITING_LANDING 9
+#define LANDING 10
+
 #define MUST_NOT_REDIRECT -2
+#define NOT_REDIRECTED -1
 
 #define NONE -1
 #define CRITICAL_FUEL 0
@@ -58,15 +62,21 @@ typedef struct {
     char *model;
     float fuel;
     int origin;
+    time_t timeTakeoff;
     int destination;
+    time_t timeLanding;
     int actual;
     int redirection;
+    bool hasBeenRedirected;
+    bool takeoffOnTime;
     position position;
-    float total_distance;
+    float totalDistance;
     float progress;
     int runwayNumber;
     int state;
     int alert;
+    bool lateTakeoff;
+    bool lateLanding;
     bool large;
 } plane_struct;
 
@@ -82,6 +92,8 @@ typedef struct {
 int newDestination(int origine);
 
 void initPlane(plane_struct *info);
+
+void checkIfLate(plane_struct *info);
 
 void decrementFuel(plane_struct *info);
 
