@@ -116,7 +116,7 @@ void printPlanesInfo(int page) {
     waiting = (int *) &numberPlanesWaiting[page];
     pthread_mutex_lock(&(mutex[page]));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "\n|    Aeroport           |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
+            "\n|     Aeroport          |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
             "|     %-13s     |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)  |\n",
                    airports[page].name,
                    waiting[4] + waiting[0], waiting[0], waiting[5] + waiting[1], waiting[1],

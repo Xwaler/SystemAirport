@@ -29,7 +29,7 @@ const char *states[] = {"desembarquement",
                         "decole",
                         "en vol",
                         "\033[0;31men vol (priorite)\033[0;37m",
-                        "\033[0;33matterit (attente)\033[0;37m",
+                        "\033[0;33men vol  (attente)\033[0;37m",
                         "atterit",
 };
 const char *alerts[] = {
@@ -79,8 +79,10 @@ void checkIfLate(plane_struct *info) {
     time(&now);
     if (!info->hasBeenRedirected && info->state == WAITING_TAKEOFF && now > info->timeTakeoff) {
         info->lateTakeoff = true;
+        info->state = PRIORITY_TAKEOFF;
     } else if (info->state == FLYING && now > info->timeLanding) {
         info->lateLanding = true;
+        info->state = PRIORITY_IN_FLIGHT;
     }
 }
 
@@ -88,6 +90,7 @@ void decrementFuel(plane_struct *info) {
     info->fuel -= info->state == LANDING ? FUEL_CONSUMPTION_RATE / 2: FUEL_CONSUMPTION_RATE;
     if (info->alert == NONE && info->fuel <= CRITICAL_FUEL_LIMIT) {
         info->alert = CRITICAL_FUEL;
+        info->state = PRIORITY_IN_FLIGHT;
     } else if (info->fuel <= 0) {
         info->fuel = 0;
         info->alert = CRASHED;
@@ -164,6 +167,7 @@ int fly(plane_struct *info) {
         if (info->alert == NONE) {
             if (!(rand() % TECHNICAL_PROBLEM_VALUE)) {
                 info->alert = TECHNICAL_PROBLEM;
+                info->state = PRIORITY_IN_FLIGHT;
             }
         }
         if (info->alert != NONE && info->redirection == NOT_REDIRECTED) {

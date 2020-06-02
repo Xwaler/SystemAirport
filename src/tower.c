@@ -158,7 +158,6 @@ void requestLanding(plane_struct *info) {
                 fflush(stdout);
             }
 
-            info->state = PRIORITY_IN_FLIGHT;
             decrementFuel(info);
             do {
                 respondInfoRequest(info);
@@ -291,7 +290,6 @@ void requestTakeoff(plane_struct *info){
                 fflush(stdout);
             }
 
-            info->state = PRIORITY_TAKEOFF;
             do {
                 respondInfoRequest(info);
                 incrementTime(&ts);
