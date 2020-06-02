@@ -68,7 +68,6 @@ typedef struct {
     int actual;
     int redirection;
     bool hasBeenRedirected;
-    bool takeoffOnTime;
     position position;
     float totalDistance;
     float progress;

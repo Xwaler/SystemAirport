@@ -63,7 +63,6 @@ void initPlane(plane_struct *info) {
     info->timeLanding = 0;
     info->timeTakeoff = 0;
     info->redirection = NOT_REDIRECTED;
-    info->takeoffOnTime = false;
     info->position = airports[info->origin].position;
     getVector(vector, &(airports[info->origin].position), &(airports[info->destination].position));
     info->totalDistance = distance(vector);
@@ -78,12 +77,10 @@ void initPlane(plane_struct *info) {
 void checkIfLate(plane_struct *info) {
     time_t now;
     time(&now);
-    if (info->state == WAITING_TAKEOFF && now > info->timeTakeoff) {
+    if (!info->hasBeenRedirected && info->state == WAITING_TAKEOFF && now > info->timeTakeoff) {
         info->lateTakeoff = true;
-        info->state = PRIORITY_TAKEOFF;
     } else if (info->state == FLYING && now > info->timeLanding) {
         info->lateLanding = true;
-        info->state = PRIORITY_IN_FLIGHT;
     }
 }
 
@@ -91,7 +88,6 @@ void decrementFuel(plane_struct *info) {
     info->fuel -= info->state == LANDING ? FUEL_CONSUMPTION_RATE / 2: FUEL_CONSUMPTION_RATE;
     if (info->alert == NONE && info->fuel <= CRITICAL_FUEL_LIMIT) {
         info->alert = CRITICAL_FUEL;
-        info->state = PRIORITY_IN_FLIGHT;
     } else if (info->fuel <= 0) {
         info->fuel = 0;
         info->alert = CRASHED;
@@ -168,7 +164,6 @@ int fly(plane_struct *info) {
         if (info->alert == NONE) {
             if (!(rand() % TECHNICAL_PROBLEM_VALUE)) {
                 info->alert = TECHNICAL_PROBLEM;
-                info->state = PRIORITY_IN_FLIGHT;
             }
         }
         if (info->alert != NONE && info->redirection == NOT_REDIRECTED) {
@@ -225,7 +220,6 @@ void *plane(void *arg) {
             info.lateTakeoff = false;
             info.lateLanding = false;
             info.hasBeenRedirected = false;
-            info.takeoffOnTime = false;
 
             info.state = EMBARKMENT;
             asyncSleep(EMBARKMENT_DURATION, &info);
@@ -243,11 +237,6 @@ void *plane(void *arg) {
         landOrTakeoff(TAKEOFF_DURATION, &info);
 
         freeRunway(&info);
-
-        if (info.redirection <= NOT_REDIRECTED) {
-            time(&now);
-            info.takeoffOnTime = now <= info.timeTakeoff;
-        }
 
         info.state = FLYING;
         fly(&info);

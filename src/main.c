@@ -84,6 +84,7 @@ void printPlanesInfo(int page) {
 
     cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
                   "  VOL   MODELE    TAILLE                  ORIGINE --> DESTINATION                          ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
+
     for (i = 0; i < LINES_PER_PAGE; ++i) {
         info = planesBuffer[i];
 
@@ -99,7 +100,7 @@ void printPlanesInfo(int page) {
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                        "| %03i | %-7s | %-5s | \033[0;3%im%s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
                        info.id, info.model, sizes[info.large],
-                       info.lateTakeoff ? 3 : info.takeoffOnTime ? 2 : 7, buf_d1,
+                       info.lateTakeoff ? 3 : info.lateTakeoff ? 7 : 2, buf_d1,
                        info.hasBeenRedirected ? 3 : 7, airports[info.origin].name,
                        airports[info.destination].name,
                        info.lateLanding ? 3 : info.state <= HANGAR ? 2 : 7, buf_d2,
@@ -108,15 +109,23 @@ void printPlanesInfo(int page) {
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
 
+    cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
+            "|------------------------------------------------------------------------------------"
+            "-----------------------------------------------------|");
+
     waiting = (int *) &numberPlanesWaiting[page];
     pthread_mutex_lock(&(mutex[page]));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "\n| Aeroport      | Atterissage large   | Atterissage petit   | Decolage large      | Decolage petit      |\n"
-            "| %-13s | %02i (%02i prioritaire) | %02i (%02i prioritaire) | %02i (%02i prioritaire) | %02i (%02i prioritaire) |\n",
+            "\n|    Aeroport           |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
+            "|     %-13s     |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)  |\n",
                    airports[page].name,
                    waiting[4] + waiting[0], waiting[0], waiting[5] + waiting[1], waiting[1],
                    waiting[6] + waiting[2], waiting[2], waiting[7] + waiting[3], waiting[3]);
     pthread_mutex_unlock(&(mutex[page]));
+
+    cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
+            "|------------------------------------------------------------------------------------"
+            "-----------------------------------------------------|");
 
     strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&now));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
