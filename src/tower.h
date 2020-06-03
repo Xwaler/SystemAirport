@@ -28,7 +28,7 @@ typedef struct {
 } airport;
 
 extern const airport airports[NUMBER_AIRPORT];
-extern int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
+extern unsigned int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
 extern pthread_mutex_t mutex[NUMBER_AIRPORT];
 
 void initRunways();

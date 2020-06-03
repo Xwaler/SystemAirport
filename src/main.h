@@ -8,7 +8,7 @@
 #define PLANE_NUMBER (PAGES * LINES_PER_PAGE)
 #define LINE_BUFFER 300
 
-extern int msgid;
+extern unsigned int msgid;
 extern bool logging;
 
 void traitantSIGINT(int signo);

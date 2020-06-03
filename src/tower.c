@@ -44,7 +44,7 @@ const airport airports[] = {
         {"Dublin",        {5334, -626}}
 };
 
-int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
+unsigned int numberPlanesWaiting[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES] = {[0 ... (NUMBER_AIRPORT - 1)] = {}};
 pthread_cond_t solicitations[NUMBER_AIRPORT][NUMBER_SOLICITATION_TYPES];
 
 bool largeRunwayFree[NUMBER_AIRPORT] = {[0 ... (NUMBER_AIRPORT - 1)] = true};
@@ -117,7 +117,7 @@ void requestLanding(plane_struct *info) {
     const char *size = sizes[info->large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    int solicitation = info->large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
+    unsigned int solicitation = info->large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
     bool *preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
@@ -197,10 +197,9 @@ void freeRunway(plane_struct *info) {
     pthread_mutex_lock(&(mutex[info->actual]));
 
     const char *runwaySize = sizes[info->runwayNumber];
-    int i = info->runwayNumber == SMALL_RUNWAY ? 1 : 0;
-    int increment = info->runwayNumber == SMALL_RUNWAY ? 2 : 1;
-    bool *runwayFree =
-    info->runwayNumber == SMALL_RUNWAY ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
+    signed char i = info->runwayNumber == SMALL_RUNWAY ? 1 : 0;
+    signed char increment = info->runwayNumber == SMALL_RUNWAY ? 2 : 1;
+    bool *runwayFree = info->runwayNumber == SMALL_RUNWAY ? &(smallRunwayFree[info->actual]) : &(largeRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Le %s avion %03i libère %s piste\n",
@@ -210,7 +209,7 @@ void freeRunway(plane_struct *info) {
     *runwayFree = true;
     info->runwayNumber = NO_RUNWAY;
 
-    while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) { i += increment; }
+    while (i < NUMBER_SOLICITATION_TYPES && !numberPlanesWaiting[info->actual][i]) { i = (signed char) (i + increment); }
     if (logging) {
         switch (i) {
             case PRIORITIZED_LARGE_PLANE_LANDING:
@@ -253,7 +252,7 @@ void requestTakeoff(plane_struct *info) {
     const char *size = sizes[info->large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    int solicitation = info->large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
+    unsigned int solicitation = info->large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
     bool *preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {

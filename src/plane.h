@@ -52,28 +52,27 @@ typedef struct {
 } position;
 
 typedef struct {
-    int seats;
     char *model;
     bool large;
 } plane_type;
 
 typedef struct {
-    int id;
+    unsigned int id;
     char *model;
     float fuel;
-    int origin;
+    unsigned int origin;
     time_t timeTakeoff;
-    int destination;
+    unsigned int destination;
     time_t timeLanding;
-    int actual;
-    int redirection;
+    unsigned int actual;
+    signed int redirection;
     bool hasBeenRedirected;
     position position;
     float totalDistance;
     float progress;
-    int runwayNumber;
-    int state;
-    int alert;
+    signed char runwayNumber;
+    unsigned char state;
+    signed char alert;
     bool lateTakeoff;
     bool lateLanding;
     bool landed;
@@ -90,7 +89,7 @@ typedef struct {
     plane_struct planeInfo;
 } planeResponse;
 
-int newDestination(int origine);
+int newDestination(int unsigned origine);
 
 void initPlane(plane_struct *info);
 
@@ -100,15 +99,15 @@ void decrementFuel(plane_struct *info);
 
 bool move(plane_struct *info);
 
-void sendRequestInfo(int id);
+void sendRequestInfo(unsigned int id);
 
 plane_struct getRequestResponse();
 
 void respondInfoRequest(const plane_struct *info);
 
-void asyncSleep(int nsec, plane_struct *info);
+void asyncSleep(unsigned int nsec, plane_struct *info);
 
-void landOrTakeoff(int nsec, plane_struct *info);
+void landOrTakeoff(unsigned int nsec, plane_struct *info);
 
 int fly(plane_struct *info);
 

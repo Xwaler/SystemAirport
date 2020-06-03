@@ -16,10 +16,10 @@
 
 #define MAX_ID 999
 
-int msgid;
+unsigned int msgid;
+unsigned int firstLine = 0;
+unsigned int i, j, cx;
 bool logging;
-int firstLine = 0;
-int i, j, cx;
 
 char infos[(LINES_PER_PAGE + 2) * LINE_BUFFER];
 char buf_d1[50], buf_d2[50];
@@ -30,7 +30,7 @@ char progress[5];
 
 pthread_t planes[PLANE_NUMBER];
 bool usedIds[MAX_ID + 1] = {false};
-int planeIds[PLANE_NUMBER];
+unsigned int planeIds[PLANE_NUMBER];
 
 void traitantSIGINT(const int signo) {
     printf("\033[2K");
@@ -72,9 +72,7 @@ void traitantSIGTSTP(const int signo) {
 
 int getNewId() {
     int id;
-    do {
-        id = (rand() % (MAX_ID - 1)) + 2;
-    } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (tour de controle)
+    do { id = (rand() % (MAX_ID - 1)) + 2; } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (tour de controle)
     usedIds[id] = true;
     return id;
 }
@@ -85,7 +83,7 @@ void printPlanesInfo(int page) {
     time(&now);
 
     cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
-                  "  VOL   MODELE    TAILLE                  ORIGINE --> DESTINATION                          ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
+                  "  IDF   MODELE    TAILLE                  ORIGINE --> DESTINATION                          ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
 
     for (i = 0; i < LINES_PER_PAGE; ++i) {
         info = planesBuffer[i];
@@ -170,7 +168,7 @@ int main(int argc, char **argv) {
     signal(SIGTSTP, traitantSIGTSTP);
 
     key_t clef;
-    int id, start, end;
+    unsigned int id, start, end;
     srand(getpid());
 
     printf("Création file de messages... ");

@@ -13,12 +13,12 @@
 #include "plane.h"
 
 const plane_type planeType[] = {
-        {164, "737-800", false},
-        {149, "737-700", false},
-        {375, "767-800", true},
-        {186, "A320",    false},
-        {220, "A321",    false},
-        {868, "A380",    true},
+        {"737-800", false},
+        {"737-700", false},
+        {"767-800", true},
+        {"A320",    false},
+        {"A321",    false},
+        {"A380",    true},
 };
 const char *states[] = {"desembarquement",
                         "au hangar",
@@ -45,7 +45,7 @@ const int numberPlaneTypes = sizeof(planeType) / sizeof(plane_type);
 const int sizeRequest = sizeof(planeRequest) - sizeof(long);
 const int sizeResponse = sizeof(planeResponse);
 
-int newDestination(const int origine) {
+int newDestination(const unsigned int origine) {
     int destination = rand() % (NUMBER_AIRPORT - 1);
     if (destination >= origine) {
         ++destination;
@@ -104,7 +104,7 @@ void decrementFuel(plane_struct *info) {
 bool move(plane_struct *info) {
     float vector[2], d;
 
-    int destination = info->redirection <= NOT_REDIRECTED ? info->destination : info->redirection;
+    unsigned int destination = info->redirection <= NOT_REDIRECTED ? info->destination : info->redirection;
 
     getVector(vector, &(info->position), &(airports[destination].position));
     d = distance(vector);
@@ -123,9 +123,9 @@ bool move(plane_struct *info) {
     }
 }
 
-void sendRequestInfo(const int id) {
+void sendRequestInfo(const unsigned int id) {
     int res;
-    planeRequest request = {id};
+    planeRequest request = {(long) id};
     do { res = msgsnd(msgid, &request, sizeRequest, 0); } while (res == -1 && errno == EINTR);
 }
 
@@ -145,16 +145,16 @@ void respondInfoRequest(const plane_struct *info) {
     }
 }
 
-void asyncSleep(const int nsec, plane_struct *info) {
-    int n = nsec * 1000 / UPDATE_EVERY;
+void asyncSleep(const unsigned int nsec, plane_struct *info) {
+    unsigned int n = nsec * 1000 / UPDATE_EVERY;
     for (int i = 0; i < n; ++i) {
         respondInfoRequest(info);
         usleep(UPDATE_EVERY * 1000);
     }
 }
 
-void landOrTakeoff(int nsec, plane_struct *info) {
-    int i = 0, n = nsec * 1000 / UPDATE_EVERY;
+void landOrTakeoff(const unsigned int nsec, plane_struct *info) {
+    unsigned int i = 0, n = nsec * 1000 / UPDATE_EVERY;
     while (i < n && info->alert != CRASHED) {
         decrementFuel(info);
         respondInfoRequest(info);
