@@ -16,9 +16,9 @@ const plane_type planeType[] = {
         {164, "737-800", false},
         {149, "737-700", false},
         {375, "767-800", true},
-        {186, "A320", false},
-        {220, "A321", false},
-        {868, "A380", true},
+        {186, "A320",    false},
+        {220, "A321",    false},
+        {868, "A380",    true},
 };
 const char *states[] = {"desembarquement",
                         "au hangar",
@@ -49,7 +49,8 @@ int newDestination(const int origine) {
     int destination = rand() % (NUMBER_AIRPORT - 1);
     if (destination >= origine) {
         ++destination;
-    } return destination;
+    }
+    return destination;
 }
 
 void initPlane(plane_struct *info) {
@@ -71,26 +72,28 @@ void initPlane(plane_struct *info) {
     info->alert = NONE;
     info->lateTakeoff = false;
     info->lateLanding = false;
+    info->landed = false;
+    info->tookoff = false;
     info->fuel = 100.f;
 }
 
 void checkIfLate(plane_struct *info) {
     time_t now;
     time(&now);
-    if (!info->hasBeenRedirected && info->state == WAITING_TAKEOFF && now > info->timeTakeoff) {
+    if (!info->tookoff && !info->lateTakeoff && now > info->timeTakeoff) {
         info->lateTakeoff = true;
-        info->state = PRIORITY_TAKEOFF;
-    } else if (info->state == FLYING && now > info->timeLanding) {
+        if (info->state == WAITING_TAKEOFF) info->state = PRIORITY_TAKEOFF;
+    } else if (!info->lateLanding && info->actual != info->destination && now > info->timeLanding) {
         info->lateLanding = true;
-        info->state = PRIORITY_IN_FLIGHT;
+        if (info->state == FLYING || info->state == WAITING_LANDING) info->state = PRIORITY_LANDING;
     }
 }
 
 void decrementFuel(plane_struct *info) {
-    info->fuel -= info->state == LANDING ? FUEL_CONSUMPTION_RATE / 2: FUEL_CONSUMPTION_RATE;
+    info->fuel -= info->state == LANDING ? FUEL_CONSUMPTION_RATE / 2 : FUEL_CONSUMPTION_RATE;
     if (info->alert == NONE && info->fuel <= CRITICAL_FUEL_LIMIT) {
         info->alert = CRITICAL_FUEL;
-        info->state = PRIORITY_IN_FLIGHT;
+        info->state = PRIORITY_LANDING;
     } else if (info->fuel <= 0) {
         info->fuel = 0;
         info->alert = CRASHED;
@@ -167,7 +170,7 @@ int fly(plane_struct *info) {
         if (info->alert == NONE) {
             if (!(rand() % TECHNICAL_PROBLEM_VALUE)) {
                 info->alert = TECHNICAL_PROBLEM;
-                info->state = PRIORITY_IN_FLIGHT;
+                info->state = PRIORITY_LANDING;
             }
         }
         if (info->alert != NONE && info->redirection == NOT_REDIRECTED) {
@@ -203,92 +206,99 @@ int fly(plane_struct *info) {
 void *plane(void *arg) {
     pthread_cleanup_push(cleanupHandler, NULL);
 
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTSTP);
-    pthread_sigmask(SIG_BLOCK, &mask, NULL);
+        sigset_t mask;
+        sigemptyset(&mask);
+        sigaddset(&mask, SIGINT);
+        sigaddset(&mask, SIGTSTP);
+        pthread_sigmask(SIG_BLOCK, &mask, NULL);
 
-    float vector[2];
-    plane_struct info;
-    time_t now;
-    info.id = *((int *) arg);
+        float vector[2];
+        plane_struct info;
+        time_t now;
+        info.id = *((int *) arg);
 
-    initPlane(&info);
-    while (info.alert != CRASHED) {
-        info.actual = info.origin;
+        initPlane(&info);
+        while (info.alert != CRASHED) {
+            info.actual = info.origin;
 
-        if (info.redirection <= NOT_REDIRECTED) {
-            info.timeTakeoff = time(NULL) + EMBARKMENT_DURATION + ROLLING_DURATION + TAKEOFF_DURATION + ACCEPTABLE_LATENCY;
-            info.timeLanding = info.timeTakeoff + ((info.totalDistance / SPEED) * (UPDATE_EVERY / 1000.)) + LANDING_DURATION + ROLLING_DURATION + ACCEPTABLE_LATENCY;
-            info.lateTakeoff = false;
-            info.lateLanding = false;
-            info.hasBeenRedirected = false;
+            if (info.redirection <= NOT_REDIRECTED) {
+                info.timeTakeoff =
+                        time(NULL) + EMBARKMENT_DURATION + ROLLING_DURATION + TAKEOFF_DURATION + ACCEPTABLE_LATENCY;
+                info.timeLanding =
+                        info.timeTakeoff + ((info.totalDistance / SPEED) * (UPDATE_EVERY / 1000.)) + LANDING_DURATION +
+                        ACCEPTABLE_LATENCY;
+                info.lateTakeoff = false;
+                info.lateLanding = false;
+                info.tookoff = false;
+                info.landed = false;
+                info.hasBeenRedirected = false;
 
-            info.state = EMBARKMENT;
-            asyncSleep(EMBARKMENT_DURATION, &info);
-        } else {
-            info.redirection = NOT_REDIRECTED;
-            info.hasBeenRedirected = true;
-        }
+                info.state = EMBARKMENT;
+                asyncSleep(EMBARKMENT_DURATION, &info);
+            } else {
+                info.redirection = NOT_REDIRECTED;
+                info.hasBeenRedirected = true;
+            }
 
-        info.state = ROLLING;
-        asyncSleep(ROLLING_DURATION, &info);
+            info.state = ROLLING;
+            asyncSleep(ROLLING_DURATION, &info);
 
-        requestTakeoff(&info);
+            requestTakeoff(&info);
 
-        info.state = TAKEOFF;
-        landOrTakeoff(TAKEOFF_DURATION, &info);
-
-        freeRunway(&info);
-
-        info.state = FLYING;
-        fly(&info);
-
-        if (info.alert != CRASHED) {
-            info.actual = info.redirection <= NOT_REDIRECTED ? info.destination : info.redirection;
-            requestLanding(&info);
-
-            info.state = LANDING;
-            landOrTakeoff(LANDING_DURATION, &info);
+            info.state = TAKEOFF;
+            landOrTakeoff(TAKEOFF_DURATION, &info);
 
             freeRunway(&info);
 
+            info.state = FLYING;
+            info.tookoff = true;
+            fly(&info);
+
             if (info.alert != CRASHED) {
-                info.state = ROLLING;
-                asyncSleep(ROLLING_DURATION, &info);
-                info.progress = 0;
+                info.actual = info.redirection <= NOT_REDIRECTED ? info.destination : info.redirection;
+                requestLanding(&info);
 
-                if (info.redirection <= NOT_REDIRECTED) {
-                    info.state = DISBARKEMENT;
-                    asyncSleep(DISBARKMENT_DURATION, &info);
+                info.state = LANDING;
+                landOrTakeoff(LANDING_DURATION, &info);
+
+                if (info.actual == info.destination) info.landed = true;
+                freeRunway(&info);
+
+                if (info.alert != CRASHED) {
+                    info.state = ROLLING;
+                    asyncSleep(ROLLING_DURATION, &info);
+                    info.progress = 0;
+
+                    if (info.redirection <= NOT_REDIRECTED) {
+                        info.state = DISBARKEMENT;
+                        asyncSleep(DISBARKMENT_DURATION, &info);
+                    }
+
+                    info.state = HANGAR;
+                    asyncSleep(REFUEL_DURATION, &info);
+
+                    info.alert = NONE;
+                    info.fuel = 100.f;
+                    switch (info.redirection) {
+                        case MUST_NOT_REDIRECT:
+                            info.redirection = NOT_REDIRECTED;
+                        case NOT_REDIRECTED:
+                            info.origin = info.destination;
+                            info.destination = newDestination(info.origin);
+                            break;
+                        default:
+                            info.origin = info.redirection;
+                    }
+                    getVector(vector, &(airports[info.origin].position), &(airports[info.destination].position));
+                    info.totalDistance = distance(vector);
                 }
-
-                info.state = HANGAR;
-                asyncSleep(REFUEL_DURATION, &info);
-
-                info.alert = NONE;
-                info.fuel = 100.f;
-                switch (info.redirection) {
-                    case MUST_NOT_REDIRECT:
-                        info.redirection = NOT_REDIRECTED;
-                    case NOT_REDIRECTED:
-                        info.origin = info.destination;
-                        info.destination = newDestination(info.origin);
-                        break;
-                    default:
-                        info.origin = info.redirection;
-                }
-                getVector(vector, &(airports[info.origin].position), &(airports[info.destination].position));
-                info.totalDistance = distance(vector);
             }
         }
-    }
 
-    while (true) {
-        respondInfoRequest(&info);
-        usleep(UPDATE_EVERY * 1000);
-    }
+        while (true) {
+            respondInfoRequest(&info);
+            usleep(UPDATE_EVERY * 1000);
+        }
 
     pthread_cleanup_pop(1);
 }

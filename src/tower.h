@@ -23,7 +23,7 @@
 #define LONGITUDE 1
 
 typedef struct {
-    char* name;
+    char *name;
     position position;
 } airport;
 

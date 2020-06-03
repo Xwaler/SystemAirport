@@ -5,8 +5,8 @@
 
 #define CRITICAL_FUEL_LIMIT 30
 #define UPDATE_EVERY 200
-#define FUEL_CONSUMPTION_RATE .40f
-#define SPEED 8
+#define FUEL_CONSUMPTION_RATE .30f
+#define SPEED 6
 #define TECHNICAL_PROBLEM_VALUE 1500
 
 #define REFUEL_DURATION 2
@@ -16,7 +16,7 @@
 #define LANDING_DURATION 1
 #define DISBARKMENT_DURATION 2
 
-#define ACCEPTABLE_LATENCY 4
+#define ACCEPTABLE_LATENCY 5
 
 #define DISBARKEMENT 0
 #define HANGAR 1
@@ -26,7 +26,7 @@
 #define PRIORITY_TAKEOFF 5
 #define TAKEOFF 6
 #define FLYING 7
-#define PRIORITY_IN_FLIGHT 8
+#define PRIORITY_LANDING 8
 #define WAITING_LANDING 9
 #define LANDING 10
 
@@ -76,6 +76,8 @@ typedef struct {
     int alert;
     bool lateTakeoff;
     bool lateLanding;
+    bool landed;
+    bool tookoff;
     bool large;
 } plane_struct;
 

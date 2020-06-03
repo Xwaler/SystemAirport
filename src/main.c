@@ -41,7 +41,7 @@ void traitantSIGINT(const int signo) {
     msgctl(msgid, IPC_RMID, NULL);
     printf("ok\n");
 
-    void* ret;
+    void *ret;
     for (int k = 0; k < PLANE_NUMBER; ++k) {
         printf("Destruction avions %i / %i\r", k + 1, PLANE_NUMBER);
         fflush(stdout);
@@ -72,7 +72,9 @@ void traitantSIGTSTP(const int signo) {
 
 int getNewId() {
     int id;
-    do { id = (rand() % (MAX_ID - 1)) + 2; } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (tour de controle)
+    do {
+        id = (rand() % (MAX_ID - 1)) + 2;
+    } while (usedIds[id]); // pour eviter msg type == 0 (erreur) ou 1 (tour de controle)
     usedIds[id] = true;
     return id;
 }
@@ -100,36 +102,37 @@ void printPlanesInfo(int page) {
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                        "| %03i | %-7s | %-5s | \033[0;3%im%s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
                        info.id, info.model, sizes[info.large],
-                       info.lateTakeoff ? 3 : info.lateTakeoff ? 7 : 2, buf_d1,
+                       info.lateTakeoff ? 3 : info.tookoff ? 2 : 7, buf_d1,
                        info.hasBeenRedirected ? 3 : 7, airports[info.origin].name,
                        airports[info.destination].name,
-                       info.lateLanding ? 3 : info.state <= HANGAR ? 2 : 7, buf_d2,
+                       info.lateLanding ? 3 : info.landed ? 2 : 7, buf_d2,
                        progress, states[info.state],
                        info.redirection <= NOT_REDIRECTED ? "" : airports[info.redirection].name,
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
     }
 
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "|------------------------------------------------------------------------------------"
-            "-----------------------------------------------------|");
+                   "|------------------------------------------------------------------------------------"
+                   "-----------------------------------------------------|");
 
     waiting = (int *) &numberPlanesWaiting[page];
     pthread_mutex_lock(&(mutex[page]));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "\n|     Aeroport          |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
-            "|     %-13s     |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)  |\n",
+                   "\n|     Aeroport          |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
+                   "|     %-13s     |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)  |\n",
                    airports[page].name,
                    waiting[4] + waiting[0], waiting[0], waiting[5] + waiting[1], waiting[1],
                    waiting[6] + waiting[2], waiting[2], waiting[7] + waiting[3], waiting[3]);
     pthread_mutex_unlock(&(mutex[page]));
 
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-            "|------------------------------------------------------------------------------------"
-            "-----------------------------------------------------|");
+                   "|------------------------------------------------------------------------------------"
+                   "-----------------------------------------------------|");
 
     strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&now));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-                   "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante) - Heure locale %s\n", page + 1, PAGES, buf_d1);
+                   "\nPage %2i / %02i (CTRL-Z pour passer a la page suivante) - Heure locale %s\n", page + 1, PAGES,
+                   buf_d1);
 
     printf("\033[H");
     printf("%s", infos);
