@@ -1,11 +1,22 @@
 # SystemAirport
 System Programming Study Project
 
-To compile project run:
+## Setup
+Compile project with:
 ```
 make
 ```
-Then run:
+
+## Usage
 ```
 ./SystemAirport
 ```
+Command line options:
+```
+SystemAirport -h | -l
+-h : displays help
+-l : replace tabular display with text
+```
+
+## Overview
+![SystemAirport](img/SystemAirport.gif?raw=true "SystemAirport")

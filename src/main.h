@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#define LINES_PER_PAGE 19
+#define LINES_PER_PAGE 16
 #define PAGES 30
 #define PLANE_NUMBER (PAGES * LINES_PER_PAGE)
 #define LINE_BUFFER 300

@@ -86,7 +86,7 @@ void printPlanesInfo(int page) {
     time(&now);
 
     cx = snprintf(infos, LINES_PER_PAGE * LINE_BUFFER,
-                  "  IDF   MODELE    TAILLE                  ORIGINE --> DESTINATION                          ETAT          REDIGIGE VERS    ALERTE     FUEL\n\n");
+                  "  IDF   MODELE    TAILLE                      ORIGINE --> DESTINATION                           ETAT             REDIGIGE VERS    ALERTE     FUEL\n\n");
 
     for (i = 0; i < LINES_PER_PAGE; ++i) {
         info = planesBuffer[i];
@@ -130,13 +130,13 @@ void printPlanesInfo(int page) {
 
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                    "|------------------------------------------------------------------------------------"
-                   "-----------------------------------------------------|");
+                   "-------------------------------------------------------------|");
 
     waiting = (int *) &numberPlanesWaiting[page];
     pthread_mutex_lock(&(mutex[page]));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-                   "\n|     Aeroport          |     Atterissage large      |     Atterissage petit      |     Decolage large         |     Decolage petit       |\n"
-                   "|     %-13s     |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)    |     %02i (%02i prioritaire)  |\n",
+                   "\n|     Aeroport          |      Atterissage large       |      Atterissage petit       |      Decolage large          |      Decolage petit        |\n"
+                   "|     %-13s     |      %02i (%02i prioritaire)     |      %02i (%02i prioritaire)     |      %02i (%02i prioritaire)     |      %02i (%02i prioritaire)   |\n",
                    airports[page].name,
                    waiting[4] + waiting[0], waiting[0], waiting[5] + waiting[1], waiting[1],
                    waiting[6] + waiting[2], waiting[2], waiting[7] + waiting[3], waiting[3]);
@@ -144,7 +144,7 @@ void printPlanesInfo(int page) {
 
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                    "|------------------------------------------------------------------------------------"
-                   "-----------------------------------------------------|");
+                   "-------------------------------------------------------------|");
 
     strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&now));
     cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
