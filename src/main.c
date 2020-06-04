@@ -8,6 +8,7 @@
 #include <math.h>
 #include <sys/msg.h>
 #include <sys/ipc.h>
+#include <sys/ioctl.h>
 #include <pthread.h>
 
 #include "main.h"
@@ -15,6 +16,8 @@
 #include "plane.h"
 
 #define MAX_ID 999
+#define MIN_CONSOLE_WIDTH 147
+#define MIN_CONSOLE_HEIGHT (2 + LINES_PER_PAGE + 4 + 2)
 
 unsigned int msgid;
 unsigned int firstLine = 0;
@@ -22,7 +25,7 @@ unsigned int i, j, cx;
 bool logging;
 
 char infos[(LINES_PER_PAGE + 2) * LINE_BUFFER];
-char buf_d1[50], buf_d2[50];
+char buf_d1[9], buf_d2[9], buf_d3[4], buf_d4[4];
 time_t now;
 char date_format[] = "%H:%M:%S";
 plane_struct planesBuffer[LINES_PER_PAGE];
@@ -94,16 +97,32 @@ void printPlanesInfo(int page) {
             sprintf(progress, "%3.0f%%", roundf(info.progress));
         }
 
-        strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&info.timeTakeoff));
-        strftime(buf_d2, sizeof(buf_d2), date_format, localtime(&info.timeLanding));
+        strftime(buf_d1, sizeof(buf_d1), date_format, localtime(&info.targetTimeTakeoff));
+        strftime(buf_d2, sizeof(buf_d2), date_format, localtime(&info.targetTimeLanding));
+
+        if (info.timeTakeoff) {
+            int diff = (int) (info.timeTakeoff - info.targetTimeTakeoff);
+            if (diff <= 0) sprintf(buf_d3, "-%02i", abs(diff));
+            else sprintf(buf_d3, "+%02i", diff);
+        } else {
+            strcpy(buf_d3, " ");
+        }
+
+        if (info.timeLanding) {
+            int diff = (int) (info.timeLanding - info.targetTimeLanding);
+            if (diff <= 0) sprintf(buf_d4, "-%02i", abs(diff));
+            else sprintf(buf_d4, "+%02i", diff);
+        } else {
+            strcpy(buf_d4, " ");
+        }
 
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
-                       "| %03i | %-7s | %-5s | \033[0;3%im%s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
+                       "| %03i | %-7s | %-5s | \033[0;3%im%s %3s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%3s %s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
                        info.id, info.model, sizes[info.large],
-                       info.lateTakeoff ? 3 : info.tookoff ? 2 : 7, buf_d1,
+                       info.lateTakeoff ? 3 : info.timeTakeoff ? 2 : 7, buf_d1, buf_d3,
                        info.hasBeenRedirected ? 3 : 7, airports[info.origin].name,
                        airports[info.destination].name,
-                       info.lateLanding ? 3 : info.landed ? 2 : 7, buf_d2,
+                       info.lateLanding ? 3 : info.timeLanding ? 2 : 7, buf_d4, buf_d2,
                        progress, states[info.state],
                        info.redirection <= NOT_REDIRECTED ? "" : airports[info.redirection].name,
                        info.alert == NONE ? "" : alerts[info.alert], roundf(info.fuel));
@@ -170,6 +189,15 @@ int main(int argc, char **argv) {
     key_t clef;
     unsigned int id, start, end;
     srand(getpid());
+
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
+    if (!logging && (w.ws_col < MIN_CONSOLE_WIDTH || w.ws_row < MIN_CONSOLE_HEIGHT)) {
+        printf("La taille de la fenetre est trop petite (%i x %i), merci d'agrandir la console, >= (%i x %i)\n",
+                w.ws_col, w.ws_row, MIN_CONSOLE_WIDTH, MIN_CONSOLE_HEIGHT);
+        exit(1);
+    }
 
     printf("Création file de messages... ");
     fflush(stdout);

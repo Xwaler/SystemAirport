@@ -61,6 +61,8 @@ void initPlane(plane_struct *info) {
     info->large = planeType[i].large;
     info->origin = rand() % NUMBER_AIRPORT;
     info->destination = newDestination(info->origin);
+    info->targetTimeLanding = 0;
+    info->targetTimeTakeoff = 0;
     info->timeLanding = 0;
     info->timeTakeoff = 0;
     info->redirection = NOT_REDIRECTED;
@@ -72,18 +74,16 @@ void initPlane(plane_struct *info) {
     info->alert = NONE;
     info->lateTakeoff = false;
     info->lateLanding = false;
-    info->landed = false;
-    info->tookoff = false;
     info->fuel = 100.f;
 }
 
 void checkIfLate(plane_struct *info) {
     time_t now;
     time(&now);
-    if (!info->tookoff && !info->lateTakeoff && now > info->timeTakeoff) {
+    if (!info->timeTakeoff && !info->lateTakeoff && now > info->targetTimeTakeoff) {
         info->lateTakeoff = true;
         if (info->state == WAITING_TAKEOFF) info->state = PRIORITY_TAKEOFF;
-    } else if (!info->lateLanding && info->actual != info->destination && now > info->timeLanding) {
+    } else if (!info->lateLanding && info->actual != info->destination && now > info->targetTimeLanding) {
         info->lateLanding = true;
         if (info->state == FLYING || info->state == WAITING_LANDING) info->state = PRIORITY_LANDING;
     }
@@ -222,15 +222,15 @@ void *plane(void *arg) {
             info.actual = info.origin;
 
             if (info.redirection <= NOT_REDIRECTED) {
-                info.timeTakeoff =
+                info.targetTimeTakeoff =
                         time(NULL) + EMBARKMENT_DURATION + ROLLING_DURATION + TAKEOFF_DURATION + ACCEPTABLE_LATENCY;
-                info.timeLanding =
-                        info.timeTakeoff + ((info.totalDistance / SPEED) * (UPDATE_EVERY / 1000.)) + LANDING_DURATION +
+                info.targetTimeLanding =
+                        info.targetTimeTakeoff + ((info.totalDistance / SPEED) * (UPDATE_EVERY / 1000.)) + LANDING_DURATION +
                         ACCEPTABLE_LATENCY;
                 info.lateTakeoff = false;
                 info.lateLanding = false;
-                info.tookoff = false;
-                info.landed = false;
+                info.timeTakeoff = 0;
+                info.timeLanding = 0;
                 info.hasBeenRedirected = false;
 
                 info.state = EMBARKMENT;
@@ -246,12 +246,15 @@ void *plane(void *arg) {
             requestTakeoff(&info);
 
             info.state = TAKEOFF;
+            if (!info.hasBeenRedirected) {
+                time(&now);
+                info.timeTakeoff = now;
+            }
             landOrTakeoff(TAKEOFF_DURATION, &info);
 
             freeRunway(&info);
 
             info.state = FLYING;
-            info.tookoff = true;
             fly(&info);
 
             if (info.alert != CRASHED) {
@@ -261,7 +264,10 @@ void *plane(void *arg) {
                 info.state = LANDING;
                 landOrTakeoff(LANDING_DURATION, &info);
 
-                if (info.actual == info.destination) info.landed = true;
+                if (info.actual == info.destination) {
+                    time(&now);
+                    info.timeLanding = now;
+                }
                 freeRunway(&info);
 
                 if (info.alert != CRASHED) {

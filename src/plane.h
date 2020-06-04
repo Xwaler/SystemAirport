@@ -61,8 +61,10 @@ typedef struct {
     char *model;
     float fuel;
     unsigned int origin;
+    time_t targetTimeTakeoff;
     time_t timeTakeoff;
     unsigned int destination;
+    time_t targetTimeLanding;
     time_t timeLanding;
     unsigned int actual;
     signed int redirection;
@@ -75,8 +77,6 @@ typedef struct {
     signed char alert;
     bool lateTakeoff;
     bool lateLanding;
-    bool landed;
-    bool tookoff;
     bool large;
 } plane_struct;
 
