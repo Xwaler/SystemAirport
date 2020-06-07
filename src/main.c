@@ -118,7 +118,7 @@ void printPlanesInfo(int page) {
 
         cx += snprintf(infos + cx, LINES_PER_PAGE * LINE_BUFFER - cx,
                        "| %03i | %-7s | %-5s | \033[0;3%im%s %3s\033[0;37m  \033[0;3%im%13s\033[0;37m --> %-13s  \033[0;3%im%3s %s\033[0;37m | %4s %-17s | %-13s | %-9s | %3.0f%% |\n",
-                       info.id, info.model, sizes[info.large],
+                       info.id, info.type.model, sizes[info.type.large],
                        info.lateTakeoff ? 3 : info.timeTakeoff ? 2 : 7, buf_d1, buf_d3,
                        info.hasBeenRedirected ? 3 : 7, airports[info.origin].name,
                        airports[info.destination].name,

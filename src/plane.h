@@ -58,7 +58,7 @@ typedef struct {
 
 typedef struct {
     unsigned int id;
-    char *model;
+    plane_type type;
     float fuel;
     unsigned int origin;
     time_t targetTimeTakeoff;
@@ -77,7 +77,6 @@ typedef struct {
     signed char alert;
     bool lateTakeoff;
     bool lateLanding;
-    bool large;
 } plane_struct;
 
 typedef struct {
@@ -109,7 +108,7 @@ void asyncSleep(unsigned int nsec, plane_struct *info);
 
 void landOrTakeoff(unsigned int nsec, plane_struct *info);
 
-int fly(plane_struct *info);
+void fly(plane_struct *info);
 
 void *plane(void *arg);
 

@@ -57,8 +57,7 @@ void initPlane(plane_struct *info) {
     int i = rand() % numberPlaneTypes;
     float vector[2];
 
-    info->model = planeType[i].model;
-    info->large = planeType[i].large;
+    info->type = planeType[i];
     info->origin = rand() % NUMBER_AIRPORT;
     info->destination = newDestination(info->origin);
     info->targetTimeLanding = 0;
@@ -163,7 +162,7 @@ void landOrTakeoff(const unsigned int nsec, plane_struct *info) {
     }
 }
 
-int fly(plane_struct *info) {
+void fly(plane_struct *info) {
     while (info->alert != CRASHED && move(info)) {
         decrementFuel(info);
 

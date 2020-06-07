@@ -114,11 +114,11 @@ void requestLanding(plane_struct *info) {
     pthread_mutex_lock(&(mutex[info->actual]));
 
     int res;
-    const char *size = sizes[info->large];
+    const char *size = sizes[info->type.large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    unsigned int solicitation = info->large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
-    bool *preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
+    unsigned int solicitation = info->type.large ? LARGE_PLANE_LANDING : SMALL_PLANE_LANDING;
+    bool *preferedRunwayFree = info->type.large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande d'atterrissage %s avion %03i\n",
@@ -130,7 +130,7 @@ void requestLanding(plane_struct *info) {
     while (info->alert == NONE && !info->lateLanding && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour atterrir\n",
-                   airports[info->actual].name, info->id, info->large ? "large" : "une");
+                   airports[info->actual].name, info->id, info->type.large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -148,13 +148,13 @@ void requestLanding(plane_struct *info) {
     --(numberPlanesWaiting[info->actual][solicitation]);
 
     if ((info->alert != NONE || info->lateLanding) && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
-        solicitation = info->large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
+        solicitation = info->type.large ? PRIORITIZED_LARGE_PLANE_LANDING : PRIORITIZED_SMALL_PLANE_LANDING;
 
         ++(numberPlanesWaiting[info->actual][solicitation]);
         do {
             if (logging) {
                 printf("%s: Avion %03i attend %s piste pour atterrir d'urgence\n",
-                       airports[info->actual].name, info->id, info->large ? "large" : "une");
+                       airports[info->actual].name, info->id, info->type.large ? "large" : "une");
                 fflush(stdout);
             }
 
@@ -203,7 +203,7 @@ void freeRunway(plane_struct *info) {
 
     if (logging) {
         printf("%s: Le %s avion %03i libère %s piste\n",
-               airports[info->actual].name, sizes[info->large], info->id, runwaySize);
+               airports[info->actual].name, sizes[info->type.large], info->id, runwaySize);
         fflush(stdout);
     }
     *runwayFree = true;
@@ -249,11 +249,11 @@ void requestTakeoff(plane_struct *info) {
     pthread_mutex_lock(&(mutex[info->actual]));
 
     int res;
-    const char *size = sizes[info->large];
+    const char *size = sizes[info->type.large];
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    unsigned int solicitation = info->large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
-    bool *preferedRunwayFree = info->large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
+    unsigned int solicitation = info->type.large ? LARGE_PLANE_TAKEOFF : SMALL_PLANE_TAKEOFF;
+    bool *preferedRunwayFree = info->type.large ? &(largeRunwayFree[info->actual]) : &(smallRunwayFree[info->actual]);
 
     if (logging) {
         printf("%s: Demande de décolage %s avion %03i\n",
@@ -265,7 +265,7 @@ void requestTakeoff(plane_struct *info) {
     while (!info->lateTakeoff && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
         if (logging) {
             printf("%s: Avion %03i attend %s piste pour décoler\n",
-                   airports[info->actual].name, info->id, info->large ? "large" : "une");
+                   airports[info->actual].name, info->id, info->type.large ? "large" : "une");
             fflush(stdout);
         }
 
@@ -281,13 +281,13 @@ void requestTakeoff(plane_struct *info) {
     --(numberPlanesWaiting[info->actual][solicitation]);
 
     if (info->lateTakeoff && !(*preferedRunwayFree) && !largeRunwayFree[info->actual]) {
-        solicitation = info->large ? PRIORITIZED_LARGE_PLANE_TAKEOFF : PRIORITIZED_SMALL_PLANE_TAKEOFF;
+        solicitation = info->type.large ? PRIORITIZED_LARGE_PLANE_TAKEOFF : PRIORITIZED_SMALL_PLANE_TAKEOFF;
 
         ++(numberPlanesWaiting[info->actual][solicitation]);
         do {
             if (logging) {
                 printf("%s: Avion %03i attend %s piste pour décoler d'urgence\n",
-                       airports[info->actual].name, info->id, info->large ? "large" : "une");
+                       airports[info->actual].name, info->id, info->type.large ? "large" : "une");
                 fflush(stdout);
             }
 
