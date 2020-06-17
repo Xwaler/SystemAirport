@@ -220,6 +220,14 @@ void freeRunway(plane_struct *info) {
                 printf("%s: Donne la %s piste à un petit avion prioritaire pour atterir\n",
                        airports[info->actual].name, runwaySize);
                 break;
+            case PRIORITIZED_LARGE_PLANE_TAKEOFF:
+                printf("%s: Donne la %s piste à un gros avion prioritaire pour décoler\n",
+                       airports[info->actual].name, runwaySize);
+                break;
+            case PRIORITIZED_SMALL_PLANE_TAKEOFF:
+                printf("%s: Donne la %s piste à un petit avion prioritaire pour décoler\n",
+                       airports[info->actual].name, runwaySize);
+                break;
             case LARGE_PLANE_LANDING:
                 printf("%s: Donne la %s piste à un gros avion pour atterir\n",
                        airports[info->actual].name, runwaySize);
@@ -306,7 +314,7 @@ void requestTakeoff(plane_struct *info) {
         *preferedRunwayFree = false;
         info->runwayNumber = preferedRunwayFree == &(smallRunwayFree[info->actual]) ? SMALL_RUNWAY : LARGE_RUNWAY;
     } else {
-        largeRunwayFree[info->actual] = true;
+        largeRunwayFree[info->actual] = false;
         info->runwayNumber = LARGE_RUNWAY;
     }
     if (logging) {

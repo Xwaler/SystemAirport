@@ -79,10 +79,10 @@ void initPlane(plane_struct *info) {
 void checkIfLate(plane_struct *info) {
     time_t now;
     time(&now);
-    if (!info->timeTakeoff && !info->lateTakeoff && now > info->targetTimeTakeoff) {
+    if (!info->lateTakeoff && !info->timeTakeoff && now > info->targetTimeTakeoff) {
         info->lateTakeoff = true;
         if (info->state == WAITING_TAKEOFF) info->state = PRIORITY_TAKEOFF;
-    } else if (!info->lateLanding && info->actual != info->destination && now > info->targetTimeLanding) {
+    } else if (!info->lateLanding && now > info->targetTimeLanding) {
         info->lateLanding = true;
         if (info->state == FLYING || info->state == WAITING_LANDING) info->state = PRIORITY_LANDING;
     }
