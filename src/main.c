@@ -24,7 +24,7 @@ unsigned int firstLine = 0;
 unsigned int i, j, cx;
 bool logging;
 
-char infos[(LINES_PER_PAGE + 2) * LINE_BUFFER];
+char infos[(LINES_PER_PAGE + 6) * LINE_BUFFER];
 char buf_d1[9], buf_d2[9], buf_d3[4], buf_d4[4];
 time_t now;
 char date_format[] = "%H:%M:%S";
